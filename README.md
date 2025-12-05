@@ -63,9 +63,29 @@ Individuals with investments spread across multiple platforms who want a consoli
 - Audit logs for access and data changes.
 - Regional data residency and GDPR/CCPA readiness where applicable.
 
+## Demo: manual portfolio capture
+A lightweight static demo is included to show the manual ticker entry flow and real-time aggregate calculations.
+
+### How to run locally
+1. From the repository root, start a simple HTTP server:
+   ```bash
+   python -m http.server 8000
+   ```
+2. Open http://localhost:8000 in your browser.
+3. Add ticker symbols and their market values. The demo will show aggregate portfolio value and per-position weights. You can edit values inline or reset to sample data at any time.
+
+### What the demo covers
+- Manual ticker/value entry
+- Inline edits and deletion
+- Aggregate portfolio value and allocation weights that respond instantly to changes
+
+### Next steps for the demo
+- Persist holdings to local storage
+- Add quantity/cost basis fields and basic P&L
+- Expand visuals with allocation charts and time-series performance
+
 ## Next steps
 - Define MVP scope (manual portfolio + IBKR connector + basic allocations/performance).
 - Flesh out API contracts and adapter interfaces for brokers.
 - Create schema migrations and seed data for sample portfolios.
 - Build initial dashboard with manual entry and aggregated metrics.
-
