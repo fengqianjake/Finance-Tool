@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio Snapshot</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Unified Investment Visualization Platform</p>
+      <h1>Portfolio Snapshot</h1>
+      <p class="lede">Add tickers with their share counts, fetch live prices, and see your aggregate portfolio value plus allocation weights by asset class. Run it locally and it will remember your holdings and API key in this browser.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Add a holding</h2>
+      <form id="holding-form" class="form-grid">
+        <label class="field">
+          <span>Ticker symbol</span>
+          <input id="ticker" name="ticker" type="text" required placeholder="e.g., AAPL" maxlength="10" />
+        </label>
+        <label class="field">
+          <span>Asset class</span>
+          <select id="asset-class" name="asset-class" required>
+            <option value="Equity" selected>Equity</option>
+            <option value="Cash - USD">Cash - USD</option>
+            <option value="Cash - CNY">Cash - CNY</option>
+            <option value="Gold">Gold</option>
+            <option value="Silver">Silver</option>
+            <option value="Bitcoin (BTC)">Bitcoin (BTC)</option>
+            <option value="Ethereum (ETH)">Ethereum (ETH)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Number of shares/units</span>
+          <input id="shares" name="shares" type="number" required min="0" step="0.0001" placeholder="10" />
+        </label>
+        <button type="submit" class="primary">Add holding</button>
+      </form>
+      <p class="helper">Market values update from Alpha Vantage quotes (demo key provided) and adjust weights as you edit shares or add/remove holdings. Everything you enter is stored locally in your browser.</p>
+    </section>
+
+    <section class="panel stats">
+      <div>
+        <p class="label">Aggregate value</p>
+        <p class="stat" id="aggregate">—</p>
+      </div>
+      <div>
+        <p class="label">Holdings</p>
+        <p class="stat" id="holding-count">0</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Live pricing</h2>
+        <button id="refresh-prices" class="ghost" type="button">Refresh prices</button>
+      </div>
+      <div class="form-grid tight">
+        <label class="field">
+          <span>Alpha Vantage API key</span>
+          <input id="api-key" name="api-key" type="text" placeholder="demo" aria-describedby="api-note" />
+        </label>
+        <p id="api-note" class="helper">A free <code>demo</code> key is prefilled. Enter your own key for higher limits and broader coverage.</p>
+      </div>
+      <p id="price-status" class="status">Live prices load on add/reset; click refresh to update all holdings.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Holdings</h2>
+        <button id="reset" class="ghost" type="button">Reset to sample</button>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Asset class</th>
+              <th class="numeric">Shares</th>
+              <th class="numeric">Live price</th>
+              <th class="numeric">Value</th>
+              <th class="numeric">Weight</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="holdings-body">
+            <tr class="empty"><td colspan="7">No holdings yet — add your first ticker to see allocations.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
