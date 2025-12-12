@@ -6,15 +6,19 @@ const tickerInput = document.getElementById('ticker');
 const assetClassInput = document.getElementById('asset-class');
 const sharesInput = document.getElementById('shares');
 const resetButton = document.getElementById('reset');
-const apiKeyInput = document.getElementById('api-key');
 const refreshPricesBtn = document.getElementById('refresh-prices');
 const priceStatusEl = document.getElementById('price-status');
 
-const API_BASE = 'https://www.alphavantage.co/query';
-const DEMO_KEY = 'demo';
+const PRICE_API = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=';
+const AUTO_REFRESH_MS = 60 * 60 * 1000; // 1 hour
 const STORAGE_KEYS = {
-  holdings: 'portfolio_holdings_v1',
-  apiKey: 'portfolio_api_key_v1',
+  holdings: 'portfolio_holdings_v2',
+};
+
+const state = {
+  holdings: [],
+  isFetching: false,
+  lastStatus: 'Live pricing powered by Yahoo Finance (auto-refreshes hourly).',
 };
 
 function generateId() {
@@ -24,8 +28,17 @@ function generateId() {
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-const priceFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
+const priceFormatter = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+});
 
 function fallbackPrice(holding) {
   if (holding.assetClass === 'Cash - USD') return 1;
@@ -34,33 +47,32 @@ function fallbackPrice(holding) {
 }
 
 function livePrice(holding) {
-  return typeof holding.marketPrice === 'number' ? holding.marketPrice : fallbackPrice(holding);
+  return Number.isFinite(holding.marketPrice) ? holding.marketPrice : fallbackPrice(holding);
 }
 
 function normaliseSymbol(ticker, assetClass) {
   const upper = ticker.toUpperCase();
   if (assetClass === 'Cash - USD' || assetClass === 'Cash - CNY') return null;
-  if (assetClass === 'Gold') return 'XAUUSD';
-  if (assetClass === 'Silver') return 'XAGUSD';
-  if (assetClass.includes('Bitcoin')) return 'BTCUSD';
-  if (assetClass.includes('Ethereum')) return 'ETHUSD';
+  if (assetClass === 'Gold') return 'GC=F';
+  if (assetClass === 'Silver') return 'SI=F';
+  if (assetClass.includes('Bitcoin')) return 'BTC-USD';
+  if (assetClass.includes('Ethereum')) return 'ETH-USD';
   return upper;
 }
 
 async function fetchQuote(holding) {
   const symbol = normaliseSymbol(holding.ticker, holding.assetClass);
   if (!symbol) return null;
-  const key = apiKeyInput.value.trim() || DEMO_KEY;
-  const url = `${API_BASE}?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(key)}`;
+  const url = `${PRICE_API}${encodeURIComponent(symbol)}`;
 
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Quote lookup failed (${response.status})`);
     const data = await response.json();
-    const quote = data['Global Quote'];
-    const price = quote ? parseFloat(quote['05. price']) : null;
+    const quote = data?.quoteResponse?.result?.[0];
+    const price = quote ? parseFloat(quote.regularMarketPrice) : null;
     if (Number.isFinite(price)) {
-      return { price, symbol };
+      return { price, symbol: quote.symbol || symbol };
     }
   } catch (error) {
     console.warn('Unable to fetch quote', symbol, error);
@@ -69,11 +81,12 @@ async function fetchQuote(holding) {
 }
 
 function updateStatus(message) {
+  state.lastStatus = message;
   priceStatusEl.textContent = message;
 }
 
 function getTotalValue() {
-  return holdings.reduce((sum, h) => sum + h.shares * livePrice(h), 0);
+  return state.holdings.reduce((sum, h) => sum + h.shares * livePrice(h), 0);
 }
 
 function loadHoldings() {
@@ -90,6 +103,7 @@ function loadHoldings() {
         assetClass: item.assetClass || 'Equity',
         shares: Number.isFinite(parseFloat(item.shares)) ? parseFloat(item.shares) : 0,
         price: Number.isFinite(parseFloat(item.price)) ? parseFloat(item.price) : 0,
+        marketPrice: Number.isFinite(parseFloat(item.marketPrice)) ? parseFloat(item.marketPrice) : undefined,
       }))
       .filter((item) => item.ticker && item.assetClass);
   } catch (error) {
@@ -101,35 +115,17 @@ function loadHoldings() {
 function persistHoldings() {
   if (typeof localStorage === 'undefined') return;
   try {
-    const serializable = holdings.map(({ id, ticker, assetClass, shares, price }) => ({
+    const serializable = state.holdings.map(({ id, ticker, assetClass, shares, price, marketPrice }) => ({
       id,
       ticker,
       assetClass,
       shares,
       price,
+      marketPrice,
     }));
     localStorage.setItem(STORAGE_KEYS.holdings, JSON.stringify(serializable));
   } catch (error) {
     console.warn('Unable to save holdings to storage', error);
-  }
-}
-
-function loadApiKey() {
-  if (typeof localStorage === 'undefined') return '';
-  try {
-    const saved = localStorage.getItem(STORAGE_KEYS.apiKey);
-    return saved || '';
-  } catch {
-    return '';
-  }
-}
-
-function persistApiKey(value) {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEYS.apiKey, value);
-  } catch (error) {
-    console.warn('Unable to save API key to storage', error);
   }
 }
 
@@ -149,18 +145,17 @@ function getSampleHoldings() {
   return sampleHoldings.map((h) => ({ ...h, id: generateId() }));
 }
 
-let holdings = loadHoldings() || getSampleHoldings();
-apiKeyInput.value = loadApiKey() || DEMO_KEY;
-
 function render() {
   persistHoldings();
+  priceStatusEl.textContent = state.lastStatus;
+
   const total = getTotalValue();
   aggregateEl.textContent = total ? currencyFormatter.format(total) : '—';
-  holdingCountEl.textContent = holdings.length;
+  holdingCountEl.textContent = state.holdings.length;
 
   holdingsBody.innerHTML = '';
 
-  if (!holdings.length) {
+  if (!state.holdings.length) {
     const row = document.createElement('tr');
     row.className = 'empty';
     row.innerHTML = '<td colspan="7">No holdings yet — add your first ticker to see allocations.</td>';
@@ -168,7 +163,7 @@ function render() {
     return;
   }
 
-  holdings.forEach((holding) => {
+  state.holdings.forEach((holding) => {
     const price = livePrice(holding);
     const value = holding.shares * price;
     const weight = total ? (value / total) * 100 : 0;
@@ -233,7 +228,7 @@ function render() {
     removeBtn.className = 'remove';
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
-      holdings = holdings.filter((h) => h.id !== holding.id);
+      state.holdings = state.holdings.filter((h) => h.id !== holding.id);
       render();
     });
     actionsCell.appendChild(removeBtn);
@@ -244,13 +239,15 @@ function render() {
 }
 
 async function hydrateHoldingPrice(holding) {
-  const current = holdings.find((h) => h.id === holding.id);
+  const current = state.holdings.find((h) => h.id === holding.id);
   if (!current) return false;
 
   current.loadingPrice = true;
+  current.priceError = undefined;
   render();
+
   const quote = await fetchQuote(current);
-  const stillPresent = holdings.find((h) => h.id === holding.id);
+  const stillPresent = state.holdings.find((h) => h.id === holding.id);
   if (!stillPresent) {
     render();
     return false;
@@ -265,28 +262,37 @@ async function hydrateHoldingPrice(holding) {
     stillPresent.priceError = undefined;
     success = true;
   } else {
-    stillPresent.priceError = 'Price unavailable (check API key, symbol, or rate limits).';
     stillPresent.marketPrice = fallbackPrice(stillPresent);
+    stillPresent.priceError = 'Price unavailable (check symbol coverage or network).';
   }
   render();
   return success;
 }
 
 async function refreshAllPrices() {
-  if (!holdings.length) return;
-  updateStatus('Fetching live prices…');
+  if (!state.holdings.length) return;
+  state.isFetching = true;
+  updateStatus('Fetching live prices from Yahoo Finance…');
   let failures = 0;
-  await Promise.all(
-    holdings.map(async (h) => {
-      const success = await hydrateHoldingPrice(h);
-      if (!success) failures += 1;
-    }),
-  );
-  if (failures) {
-    updateStatus(`Prices refreshed with ${failures} issue${failures === 1 ? '' : 's'} (check API key, symbol, or rate limits).`);
-  } else {
-    updateStatus('Prices refreshed.');
+
+  for (const holding of state.holdings) {
+    // Sequential requests reduce the chance of hitting the free tier rate limit.
+    const success = await hydrateHoldingPrice(holding);
+    if (!success) failures += 1;
   }
+
+  state.isFetching = false;
+  if (failures) {
+    updateStatus(`Prices refreshed with ${failures} issue${failures === 1 ? '' : 's'} (check symbol coverage or network).`);
+  } else {
+    updateStatus('Prices refreshed from Yahoo Finance.');
+  }
+}
+
+function refreshMissingPrices() {
+  const needsPrice = state.holdings.filter((h) => !Number.isFinite(h.marketPrice) && normaliseSymbol(h.ticker, h.assetClass));
+  if (!needsPrice.length) return;
+  refreshAllPrices();
 }
 
 form.addEventListener('submit', (event) => {
@@ -300,7 +306,7 @@ form.addEventListener('submit', (event) => {
   }
 
   const newHolding = { id: generateId(), ticker, assetClass, shares, price: 0 };
-  holdings = [newHolding, ...holdings];
+  state.holdings = [newHolding, ...state.holdings];
 
   form.reset();
   tickerInput.focus();
@@ -309,7 +315,7 @@ form.addEventListener('submit', (event) => {
 });
 
 resetButton.addEventListener('click', () => {
-  holdings = getSampleHoldings();
+  state.holdings = getSampleHoldings();
   render();
   refreshAllPrices();
 });
@@ -318,9 +324,19 @@ refreshPricesBtn.addEventListener('click', () => {
   refreshAllPrices();
 });
 
-apiKeyInput.addEventListener('input', () => {
-  persistApiKey(apiKeyInput.value.trim());
-});
+function scheduleAutoRefresh() {
+  setInterval(() => {
+    if (!state.isFetching) {
+      refreshAllPrices();
+    }
+  }, AUTO_REFRESH_MS);
+}
 
-render();
-refreshAllPrices();
+function init() {
+  state.holdings = loadHoldings() || getSampleHoldings();
+  render();
+  refreshMissingPrices();
+  scheduleAutoRefresh();
+}
+
+init();

@@ -11,7 +11,7 @@
     <div>
       <p class="eyebrow">Unified Investment Visualization Platform</p>
       <h1>Portfolio Snapshot</h1>
-      <p class="lede">Add tickers with their share counts, fetch live prices, and see your aggregate portfolio value plus allocation weights by asset class. Run it locally and it will remember your holdings and API key in this browser.</p>
+      <p class="lede">Add tickers with their share counts, fetch live prices, and see your aggregate portfolio value plus allocation weights by asset class. Run it locally and it will remember your holdings in this browser.</p>
     </div>
   </header>
 
@@ -41,7 +41,7 @@
         </label>
         <button type="submit" class="primary">Add holding</button>
       </form>
-      <p class="helper">Market values update from Alpha Vantage quotes (demo key provided) and adjust weights as you edit shares or add/remove holdings. Everything you enter is stored locally in your browser.</p>
+      <p class="helper">Market values update from Yahoo Finance quotes hourly (or when you refresh) and adjust weights as you edit shares or add/remove holdings. Everything you enter is stored locally in your browser.</p>
     </section>
 
     <section class="panel stats">
@@ -60,14 +60,7 @@
         <h2>Live pricing</h2>
         <button id="refresh-prices" class="ghost" type="button">Refresh prices</button>
       </div>
-      <div class="form-grid tight">
-        <label class="field">
-          <span>Alpha Vantage API key</span>
-          <input id="api-key" name="api-key" type="text" placeholder="demo" aria-describedby="api-note" />
-        </label>
-        <p id="api-note" class="helper">A free <code>demo</code> key is prefilled. Enter your own key for higher limits and broader coverage.</p>
-      </div>
-      <p id="price-status" class="status">Live prices load on add/reset; click refresh to update all holdings.</p>
+      <p id="price-status" class="status">Live prices load on add/reset and refresh automatically every hour. Click refresh anytime to force an update.</p>
     </section>
 
     <section class="panel">
