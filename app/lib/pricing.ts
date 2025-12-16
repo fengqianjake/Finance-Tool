@@ -25,7 +25,7 @@ export const TICKERS = (process.env.TICKERS || '')
 
 export async function fetchQuote(symbol: string): Promise<Quote | null> {
   try {
-    const quote = await yahooFinance.quote(symbol, { modules: ['price', 'summaryDetail'] });
+    const quote = await yahooFinance.quoteSummary(symbol, { modules: ['price', 'summaryDetail'] });
     return {
       symbol,
       currency: quote.price?.currency || quote.summaryDetail?.currency,
