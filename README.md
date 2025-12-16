@@ -1,30 +1,72 @@
-# Unified Investment Visualization Platform
+# Portfolio Snapshot (Next.js + Yahoo Finance)
 
-A lightweight portfolio snapshot you can run locally to combine manual holdings, fetch live market prices from Yahoo Finance's public quote endpoint, and view aggregate value plus allocation weights across asset classes. Your holdings stay in your browser (via local storage) so you can reopen the page and pick up where you left off.
+A production-ready Next.js (App Router) portal that fetches live prices from Yahoo Finance server-side every 3 hours, stores snapshots in Postgres via Prisma, and exposes a simple UI plus JSON API. Cron-driven refreshes run in production (Vercel) without any manual API keys.
 
-## What the local page does
-- Add holdings by ticker, asset class, and share count.
-- Pull live USD prices from the Yahoo Finance quote endpoint (stocks, ETFs, many FX/crypto/commodities) without needing to supply an API key.
-- Compute market value and allocation weight per holding automatically as you edit share counts or refresh quotes.
-- Start from a sample set that includes USD/CNY cash, gold, silver, and major crypto and reset back to it anytime.
-- Persist your holdings to your browser so they reload automatically on revisit (data never leaves your machine).
+**Live portal:** https://your-vercel-deployment-url.vercel.app
 
-## Why Yahoo Finance quotes
-Yahoo Finance provides a broad set of delayed/near-real-time quotes through a public endpoint that works directly from the browser without authentication. This keeps the page completely client-side while covering most equities, ETFs, FX pairs, and popular crypto tickers.
+## Features
+- Server-side Yahoo Finance pricing via `yahoo-finance2` (no browser CORS issues, no API key needed).
+- Automatic refresh every 3 hours through Vercel Cron hitting an internal API route.
+- Snapshots persisted in Postgres with Prisma so history and "Last updated" times are always available.
+- API routes for cron ingestion and for retrieving the latest prices/history (`/api/cron`, `/api/prices`).
+- UI: overview table of configured tickers and a per-ticker detail page with a lightweight SVG chart of recent snapshots.
+- Cache busting by default: all routes return `Cache-Control: no-store` and export `dynamic = 'force-dynamic'`.
 
-## Run locally: manual portfolio capture
-Run a lightweight static server to view the current site with your own data saved in the browser. When the server is running, open the portfolio instantly via [http://localhost:8000](http://localhost:8000).
+## Configuration
+Set environment variables (locally via `.env`, in Vercel via Project Settings → Environment Variables):
 
-1. From this repository root, start any static server (e.g., `python -m http.server 8000` or `npx serve .`).
-2. Visit `http://localhost:8000` in your browser to load the portfolio page with your latest changes.
-3. Add a holding by entering the ticker (e.g., `AAPL`), selecting an asset class, and typing the number of shares/units. The page fetches the latest available USD price via Yahoo Finance and updates value/weight.
-4. Prices refresh automatically every hour. Click **Refresh prices** anytime to reload quotes immediately.
-5. Use **Reset to sample** to restore the starter portfolio (this also overwrites local holdings with the sample set).
+- `TICKERS` – comma-separated list of symbols (e.g., `AAPL,MSFT,TSLA,BTC-USD`).
+- `DATABASE_URL` – Postgres connection string (Vercel Postgres, Supabase, RDS, etc.).
+- `ALLOW_CRON` – optional; set to `true` if you need to call `/api/cron` outside production for manual testing.
 
-### Live pricing tips
-- Yahoo Finance quotes are delayed/near real-time depending on the venue. If a lookup fails or a symbol is unsupported, the page shows an inline warning on the price cell and summarises the number of issues beneath the **Live pricing** heading.
+## Development setup
+1. Install dependencies: `npm install`.
+2. Copy `.env.example` to `.env` and fill in `TICKERS` and a Postgres `DATABASE_URL`. SQLite is also supported for local hacking by changing the Prisma provider to `sqlite` if preferred.
+3. Apply the schema locally (creates the `PriceSnapshot` table):
+   ```bash
+   npx prisma generate
+   npx prisma migrate deploy --schema prisma/schema.prisma
+   ```
+4. Run the app: `npm run dev` then open http://localhost:3000.
+5. (Optional) trigger a manual price capture: visit http://localhost:3000/api/cron (requires `ALLOW_CRON=true`).
 
-## Files
-- `index.html`: Structure of the portfolio page, including the live pricing controls.
-- `style.css`: Gradient-driven styling, responsive form/table layout, and helper text.
-- `app.js`: Client-side logic for holdings state, live price retrieval via Yahoo Finance, and aggregate calculations.
+## Production deployment (Vercel)
+1. Push this repo to GitHub and import it into Vercel.
+2. In Vercel → Settings → Environment Variables, add `TICKERS` and `DATABASE_URL` (and optionally `ALLOW_CRON` for staging).
+3. Add the cron schedule by keeping the provided `vercel.json` checked into the repo. Vercel Cron will call `/api/cron` every 3 hours **only in production**.
+4. Deploy. Once live, confirm the portal at your production URL (e.g., https://your-vercel-deployment-url.vercel.app) and bookmark it.
+5. View cron run logs in Vercel → Project → Deployments → Functions Logs; look for entries prefixed with `[cron]`.
+
+## API routes
+- `GET /api/cron` – fetches Yahoo Finance quotes for all tickers and writes snapshots to Postgres. Guarded to production by default; set `ALLOW_CRON=true` to run locally.
+- `GET /api/prices` – returns the latest snapshot per ticker.
+- `GET /api/prices?symbol=AAPL` – returns the recent history for the given symbol.
+
+Both routes disable caching via `Cache-Control: no-store` and `dynamic = 'force-dynamic'`.
+
+## Data model (Prisma)
+- `PriceSnapshot`: `id`, `symbol`, `currency`, `price`, `change`, `changePercent`, `source`, `createdAt` (indexed by `symbol, createdAt`).
+- Initial migration is in `prisma/migrations/0001_init/migration.sql`; apply with `npm run prisma:migrate` or `prisma migrate deploy` during build on Vercel.
+
+## Scheduler details
+- `vercel.json` defines `0 */3 * * *` to call `/api/cron` every 3 hours.
+- Cron route logs start/finish plus captured count; viewable in Vercel logs.
+- To test outside production, set `ALLOW_CRON=true` and hit `/api/cron` manually.
+
+## Troubleshooting
+- **Cron not firing**: ensure the project is deployed to production on Vercel, `vercel.json` is present, and `TICKERS`/`DATABASE_URL` are set. Check Vercel Function logs for `[cron]` entries.
+- **Caching issues**: all routes send `Cache-Control: no-store`; if you see stale data behind a CDN, force-reload or confirm no custom caching headers are added by a proxy.
+- **Yahoo failures**: the cron continues past individual symbol failures (logged). Verify the ticker exists on Yahoo (e.g., `BTC-USD`, `XAUUSD=X` for gold). If a symbol consistently fails, remove it from `TICKERS`.
+- **Rate limiting**: Vercel Cron runs every 3 hours; if you trigger manual runs, avoid rapid calls. The Yahoo client is resilient but may return fewer snapshots when rate limited; logs will note failures.
+- **Database connection**: confirm `DATABASE_URL` correctness and that the database allows connections from Vercel. Run `npm run prisma:generate` locally to validate schema.
+
+## File overview
+- `app/api/cron/route.ts` – cron ingestion endpoint.
+- `app/api/prices/route.ts` – JSON feed for latest/history.
+- `app/page.tsx` – overview UI of all tickers.
+- `app/tickers/[symbol]/page.tsx` – per-ticker detail with chart.
+- `app/lib/pricing.ts` – Yahoo Finance fetching + DB helpers.
+- `app/lib/prisma.ts` – Prisma client singleton.
+- `src/components/LineChart.tsx` – lightweight SVG chart renderer.
+- `prisma/schema.prisma` & `prisma/migrations/0001_init/migration.sql` – data model and initial migration.
+- `vercel.json` – Vercel Cron configuration (every 3 hours).
