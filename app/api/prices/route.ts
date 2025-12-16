@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getHistoryForSymbol, getLatestSnapshots } from '../../lib/pricing';
+import { ensureSeedTickers, getHistoryForSymbol, getLatestSnapshots, getTrackedTickers } from '../../lib/pricing';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,7 +16,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const latest = await getLatestSnapshots();
+  await ensureSeedTickers();
+  const tickers = await getTrackedTickers();
+  const latest = await getLatestSnapshots(tickers);
   return NextResponse.json(
     { latest },
     { headers: { 'Cache-Control': 'no-store' } }

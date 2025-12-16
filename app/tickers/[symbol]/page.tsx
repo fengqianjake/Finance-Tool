@@ -43,7 +43,7 @@ export default async function TickerPage({ params }: { params: { symbol: string 
             </div>
           </div>
         ) : (
-          <p className="muted">No data yet for this symbol. Trigger the cron job or confirm it is listed in <code>TICKERS</code>.</p>
+          <p className="muted">No data yet for this symbol. Add it via the search box on the home page and trigger the cron job.</p>
         )}
 
         <div style={{ marginTop: 24 }}>

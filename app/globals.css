@@ -167,3 +167,20 @@ footer {
   text-align: center;
   color: var(--muted);
 }
+
+.list-button {
+  border: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.6);
+  color: var(--text);
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.list-button:hover {
+  border-color: rgba(16, 185, 129, 0.7);
+  transform: translateY(-1px);
+}

@@ -18,7 +18,10 @@ export type Snapshot = {
   createdAt: Date;
 };
 
-export const TICKERS = (process.env.TICKERS || '').split(',').map((t) => t.trim()).filter(Boolean);
+export const TICKERS = (process.env.TICKERS || '')
+  .split(',')
+  .map((t) => t.trim().toUpperCase())
+  .filter(Boolean);
 
 export async function fetchQuote(symbol: string): Promise<Quote | null> {
   try {
@@ -36,10 +39,37 @@ export async function fetchQuote(symbol: string): Promise<Quote | null> {
   }
 }
 
+export async function upsertTicker(symbol: string) {
+  const normalized = symbol.trim().toUpperCase();
+  if (!normalized) return null;
+  return prisma.ticker.upsert({
+    where: { symbol: normalized },
+    update: {},
+    create: { symbol: normalized }
+  });
+}
+
+export async function getTrackedTickers(): Promise<string[]> {
+  const tickers = await prisma.ticker.findMany({ select: { symbol: true }, orderBy: { createdAt: 'asc' } });
+  return tickers.map((t) => t.symbol.toUpperCase());
+}
+
+export async function ensureSeedTickers(): Promise<string[]> {
+  const count = await prisma.ticker.count();
+  if (count === 0 && TICKERS.length > 0) {
+    await prisma.ticker.createMany({
+      data: TICKERS.map((symbol) => ({ symbol })),
+      skipDuplicates: true
+    });
+  }
+  return getTrackedTickers();
+}
+
 export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapshot[]> {
+  const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase())));
   const results: Snapshot[] = [];
 
-  for (const symbol of symbols) {
+  for (const symbol of uniqueSymbols) {
     const quote = await fetchQuote(symbol);
     if (!quote?.regularMarketPrice) {
       continue;
@@ -62,12 +92,12 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
 }
 
 export async function getLatestSnapshots(symbols?: string[]): Promise<Snapshot[]> {
-  const list = symbols && symbols.length > 0 ? symbols : TICKERS;
+  const list = symbols && symbols.length > 0 ? symbols : await getTrackedTickers();
   if (!list || list.length === 0) {
     return [];
   }
   const records = await prisma.priceSnapshot.findMany({
-    where: list ? { symbol: { in: list.map((s) => s.toUpperCase()) } } : undefined,
+    where: { symbol: { in: list.map((s) => s.toUpperCase()) } },
     orderBy: { createdAt: 'desc' }
   });
 

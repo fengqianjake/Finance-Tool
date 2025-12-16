@@ -8,14 +8,18 @@ datasource db {
 }
 
 model PriceSnapshot {
-  id             String   @id @default(cuid())
-  symbol         String
-  currency       String?
-  price          Float
-  change         Float?
-  changePercent  Float?
-  source         String   @default("yahoo")
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  symbol        String
+  currency      String?
+  price         Float
+  change        Float?
+  changePercent Float?
+  source        String   @default("yahoo")
+  createdAt     DateTime @default(now())
+}
 
-  @@index([symbol, createdAt])
+model Ticker {
+  id        String   @id @default(cuid())
+  symbol    String   @unique
+  createdAt DateTime @default(now())
 }
