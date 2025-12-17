@@ -13,56 +13,37 @@ function formatNumber(value?: number | null, digits = 2) {
 export default async function TickerPage({ params }: { params: { symbol: string } }) {
   const history = await getHistoryForSymbol(params.symbol, 60);
   const latest = history[0];
-
-  // Convert Prisma Decimal -> number for charting/formatting
-  const points = history
-    .map((h) => ({
-      x: h.createdAt,
-      y: typeof h.price === 'number' ? h.price : Number(h.price)
-    }))
-    .reverse();
-
-  const latestPrice = latest ? (typeof latest.price === 'number' ? latest.price : Number(latest.price)) : null;
+  const points = history.map((h) => ({ x: h.createdAt, y: h.price })).reverse();
 
   return (
     <div className="grid">
       <Link href="/" className="button secondary" style={{ width: 'fit-content' }}>
         ← Back
       </Link>
-
       <section className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
             <h2 style={{ margin: '4px 0' }}>{params.symbol.toUpperCase()}</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              Latest price and the last {history.length} snapshots.
-            </p>
+            <p className="muted" style={{ margin: 0 }}>Latest price and the last {history.length} snapshots.</p>
           </div>
-          <Link className="button" href={`/api/prices?symbol=${params.symbol}`} prefetch={false}>
-            JSON
-          </Link>
+          <Link className="button" href={`/api/prices?symbol=${params.symbol}`} prefetch={false}>JSON</Link>
         </div>
 
         {latest ? (
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             <div className="tile">
               <span className="muted">Price</span>
-              <strong style={{ fontSize: 28 }}>{formatNumber(latestPrice)}</strong>
+              <strong style={{ fontSize: 28 }}>{formatNumber(latest.price)}</strong>
               <span className="muted">Currency: {latest.currency ?? '—'}</span>
             </div>
-
             <div className="tile">
               <span className="muted">Last updated</span>
               <strong style={{ fontSize: 20 }}>{new Date(latest.createdAt).toLocaleString()}</strong>
-
-              {/* Option A: we no longer store change/changePercent */}
-              <span className="muted">Change: —</span>
+              <span className="muted">Change: {latest.changePercent !== null && latest.changePercent !== undefined ? `${formatNumber(latest.changePercent)}%` : formatNumber(latest.change)}</span>
             </div>
           </div>
         ) : (
-          <p className="muted">
-            No data yet for this symbol. Add it via the search box on the home page and trigger the cron job.
-          </p>
+          <p className="muted">No data yet for this symbol. Add it via the search box on the home page and trigger the cron job.</p>
         )}
 
         <div style={{ marginTop: 24 }}>

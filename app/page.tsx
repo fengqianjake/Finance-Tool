@@ -14,11 +14,7 @@ export default async function HomePage() {
   await ensureSeedTickers();
   const tickers = await getTrackedTickers();
   const snapshots = await getLatestSnapshots(tickers);
-
-  const lastUpdated =
-    snapshots.length > 0
-      ? snapshots.reduce((latest, snap) => Math.max(latest, new Date(snap.createdAt).getTime()), 0)
-      : null;
+  const lastUpdated = snapshots.length > 0 ? snapshots.reduce((latest, snap) => Math.max(latest, snap.createdAt.getTime()), 0) : null;
 
   return (
     <div className="grid grid-2">
@@ -26,15 +22,10 @@ export default async function HomePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
             <h2 style={{ margin: '4px 0' }}>Tracked tickers</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              Saved tickers are stored in Postgres and refreshed via Yahoo Finance daily.
-            </p>
+            <p className="muted" style={{ margin: 0 }}>Saved tickers are stored in Postgres and refreshed via Yahoo Finance once per day.</p>
           </div>
-          <Link className="button" href="/api/cron" prefetch={false}>
-            Run cron now
-          </Link>
+          <Link className="button" href="/api/cron" prefetch={false}>Run cron now</Link>
         </div>
-
         <table>
           <thead>
             <tr>
@@ -48,26 +39,21 @@ export default async function HomePage() {
           <tbody>
             {tickers.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
-                  Add symbols via the search box to start tracking.
-                </td>
+                <td colSpan={5} className="muted">Add symbols via the search box to start tracking.</td>
               </tr>
             )}
-
             {snapshots.map((snap) => {
-              // price is a Prisma Decimal in the new schema — convert safely for formatting
-              const priceNumber = typeof snap.price === 'number' ? snap.price : Number(snap.price);
-
+              const change = snap.changePercent ?? snap.change;
+              const isPercent = snap.changePercent !== null && snap.changePercent !== undefined;
               return (
                 <tr key={snap.symbol}>
                   <td>
                     <Link href={`/tickers/${snap.symbol}`}>{snap.symbol}</Link>
                   </td>
-                  <td>{formatNumber(priceNumber)}</td>
-
-                  {/* Option A: we no longer store change/changePercent */}
-                  <td className="muted">—</td>
-
+                  <td>{formatNumber(snap.price)}</td>
+                  <td style={{ color: change && change < 0 ? 'var(--danger)' : '#6ee7b7' }}>
+                    {change === null || change === undefined ? '—' : isPercent ? `${formatNumber(change)}%` : formatNumber(change)}
+                  </td>
                   <td>{snap.currency ?? '—'}</td>
                   <td className="muted">{new Date(snap.createdAt).toLocaleString()}</td>
                 </tr>
@@ -75,10 +61,7 @@ export default async function HomePage() {
             })}
           </tbody>
         </table>
-
-        <p className="muted" style={{ marginTop: 12 }}>
-          Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data yet — trigger cron above after adding tickers.'}
-        </p>
+        <p className="muted" style={{ marginTop: 12 }}>Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data yet — trigger cron above after adding tickers.'}</p>
       </section>
 
       <TickerSelect />
@@ -86,22 +69,14 @@ export default async function HomePage() {
       <section className="card">
         <h2 style={{ margin: '4px 0' }}>How it works</h2>
         <ul className="muted" style={{ lineHeight: 1.6 }}>
-          <li>
-            Use the search box to add any global symbol (equity/ETF/bond). We store it in Postgres.
-          </li>
-          <li>
-            A Vercel Cron job calls the internal <code>/api/cron</code> route daily in production.
-          </li>
-          <li>Prices are fetched server-side via Yahoo Finance and stored as daily snapshots.</li>
+          <li>Use the search box to add any global symbol (equity/ETF/bond). We store it in Postgres.</li>
+          <li>A Vercel Cron job calls the internal <code>/api/cron</code> route daily in production.</li>
+          <li>Prices are fetched server-side via Yahoo Finance and stored as snapshots.</li>
           <li>The UI reads directly from the database (no caching) and exposes history per ticker.</li>
         </ul>
         <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-          <Link className="button" href="/api/prices" prefetch={false}>
-            View JSON feed
-          </Link>
-          <Link className="button secondary" href="https://github.com/vercel/docs/tree/main/examples/cron" target="_blank" rel="noreferrer">
-            Cron docs
-          </Link>
+          <Link className="button" href="/api/prices" prefetch={false}>View JSON feed</Link>
+          <Link className="button secondary" href="https://github.com/vercel/docs/tree/main/examples/cron" target="_blank" rel="noreferrer">Cron docs</Link>
         </div>
       </section>
     </div>
