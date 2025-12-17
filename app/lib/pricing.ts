@@ -1,20 +1,19 @@
 import yahooFinance from 'yahoo-finance2';
+import { Prisma } from '@prisma/client';
 import prisma from './prisma';
 
 type Quote = {
   symbol: string;
   currency?: string | null;
   regularMarketPrice?: number | null;
-  regularMarketChange?: number | null;
-  regularMarketChangePercent?: number | null;
 };
 
 export type Snapshot = {
   symbol: string;
   currency?: string | null;
-  price: number;
-  change?: number | null;
-  changePercent?: number | null;
+  price: Prisma.Decimal;
+  source: string;
+  asOfDate: Date;
   createdAt: Date;
 };
 
@@ -29,9 +28,7 @@ export async function fetchQuote(symbol: string): Promise<Quote | null> {
     return {
       symbol,
       currency: quote.price?.currency || quote.summaryDetail?.currency,
-      regularMarketPrice: quote.price?.regularMarketPrice ?? undefined,
-      regularMarketChange: quote.price?.regularMarketChange ?? undefined,
-      regularMarketChangePercent: quote.price?.regularMarketChangePercent ?? undefined
+      regularMarketPrice: quote.price?.regularMarketPrice ?? undefined
     };
   } catch (error) {
     console.error(`[pricing] failed to fetch quote for ${symbol}`, error);
@@ -65,23 +62,40 @@ export async function ensureSeedTickers(): Promise<string[]> {
   return getTrackedTickers();
 }
 
+/**
+ * Stores ONE snapshot per symbol per day (UTC) using the schema:
+ * PriceSnapshot(symbol, price, currency?, source, asOfDate, createdAt)
+ */
 export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapshot[]> {
   const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase())));
   const results: Snapshot[] = [];
 
+  // Use a stable "daily key" (00:00 UTC) so upserts are deterministic for Vercel daily cron
+  const asOfDate = new Date();
+  asOfDate.setUTCHours(0, 0, 0, 0);
+
   for (const symbol of uniqueSymbols) {
     const quote = await fetchQuote(symbol);
-    if (!quote?.regularMarketPrice) {
-      continue;
-    }
+    if (quote?.regularMarketPrice == null) continue;
 
-    const created = await prisma.priceSnapshot.create({
-      data: {
+    const created = await prisma.priceSnapshot.upsert({
+      where: {
+        symbol_asOfDate: {
+          symbol: symbol.toUpperCase(),
+          asOfDate
+        }
+      },
+      update: {
+        currency: quote.currency || undefined,
+        price: new Prisma.Decimal(quote.regularMarketPrice),
+        source: 'yahoo'
+      },
+      create: {
         symbol: symbol.toUpperCase(),
         currency: quote.currency || undefined,
-        price: quote.regularMarketPrice,
-        change: quote.regularMarketChange ?? undefined,
-        changePercent: quote.regularMarketChangePercent ?? undefined
+        price: new Prisma.Decimal(quote.regularMarketPrice),
+        source: 'yahoo',
+        asOfDate
       }
     });
 
@@ -93,9 +107,9 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
 
 export async function getLatestSnapshots(symbols?: string[]): Promise<Snapshot[]> {
   const list = symbols && symbols.length > 0 ? symbols : await getTrackedTickers();
-  if (!list || list.length === 0) {
-    return [];
-  }
+  if (!list || list.length === 0) return [];
+
+  // Fetch newest first, then de-dupe by symbol
   const records = await prisma.priceSnapshot.findMany({
     where: { symbol: { in: list.map((s) => s.toUpperCase()) } },
     orderBy: { createdAt: 'desc' }
