@@ -99,7 +99,7 @@ export async function getPortfolioSnapshot(preferredCurrency?: string): Promise<
     if (holding.assetClass === 'STOCK' || holding.assetClass === 'ETF' || holding.assetClass === 'BITCOIN' || holding.assetClass === 'GOLD' || holding.assetClass === 'SILVER') {
       if (resolvedSymbol && priceMap.has(resolvedSymbol)) {
         const snap = priceMap.get(resolvedSymbol)!;
-        pricePerUnit = snap.price;
+        pricePerUnit = snap.price.toNumber();
         valueCurrency = snap.currency || 'USD';
         priceAt = snap.createdAt;
         priceLastUpdated = priceLastUpdated ? new Date(Math.max(priceLastUpdated.getTime(), snap.createdAt.getTime())) : snap.createdAt;

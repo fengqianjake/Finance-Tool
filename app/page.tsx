@@ -1,3 +1,4 @@
+import { toNumber } from './lib/number';
 import Link from 'next/link';
 import TickerSelect from '../src/components/TickerSelect';
 import { ensureSeedTickers, getLatestSnapshots, getTrackedTickers } from './lib/pricing';
@@ -50,7 +51,7 @@ export default async function HomePage() {
                   <td>
                     <Link href={`/tickers/${snap.symbol}`}>{snap.symbol}</Link>
                   </td>
-                  <td>{formatNumber(snap.price)}</td>
+                  <td>{formatNumber(toNumber(snap.price))}</td>
                   <td style={{ color: change && change < 0 ? 'var(--danger)' : '#6ee7b7' }}>
                     {change === null || change === undefined ? '—' : isPercent ? `${formatNumber(change)}%` : formatNumber(change)}
                   </td>

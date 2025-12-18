@@ -1,4 +1,5 @@
 import yahooFinance from 'yahoo-finance2';
+import { Prisma } from '@prisma/client';
 import prisma from './prisma';
 
 type Quote = {
@@ -12,7 +13,7 @@ type Quote = {
 export type Snapshot = {
   symbol: string;
   currency?: string | null;
-  price: number;
+  price: Prisma.Decimal;
   change?: number | null;
   changePercent?: number | null;
   asOfDate: Date;
