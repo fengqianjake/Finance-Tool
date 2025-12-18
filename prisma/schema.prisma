@@ -22,12 +22,15 @@ model PriceSnapshot {
   id            String   @id @default(cuid())
   symbol        String
   currency      String?
-  price         Float
+  price         Decimal  @db.Decimal(18, 8)
   change        Float?
   changePercent Float?
   source        String   @default("yahoo")
   asOfDate      DateTime
   createdAt     DateTime @default(now())
+
+  @@unique([symbol, asOfDate], name: "symbol_asOfDate")
+  @@index([symbol])
 }
 
 model Ticker {
