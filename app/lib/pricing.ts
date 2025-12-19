@@ -100,10 +100,9 @@ export async function ensureSeedTickers(): Promise<string[]> {
  * Requires Prisma schema:
  *   asOfDate DateTime
  *   @@unique([symbol, asOfDate], name: "symbol_asOfDate")
- *   price Decimal
  */
 export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapshot[]> {
-  const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.trim().toUpperCase()))).filter(Boolean);
+  const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase()))).filter(Boolean);
   const results: Snapshot[] = [];
 
   // Stable daily key (00:00 UTC) so reruns are idempotent
@@ -112,10 +111,7 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
 
   for (const symbol of uniqueSymbols) {
     const quote = await fetchQuote(symbol);
-    if (quote?.regularMarketPrice == null) {
-      console.warn(`[pricing] no price for ${symbol}`);
-      continue;
-    }
+    if (quote?.regularMarketPrice == null) continue;
 
     const record = await prisma.priceSnapshot.upsert({
       where: {
@@ -126,7 +122,7 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
       },
       update: {
         currency: quote.currency ?? undefined,
-        price: new Prisma.Decimal(quote.regularMarketPrice),
+        price: quote.regularMarketPrice,
         change: quote.regularMarketChange ?? undefined,
         changePercent: quote.regularMarketChangePercent ?? undefined,
         source: 'yahoo'
@@ -134,7 +130,7 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
       create: {
         symbol,
         currency: quote.currency ?? undefined,
-        price: new Prisma.Decimal(quote.regularMarketPrice),
+        price: quote.regularMarketPrice,
         change: quote.regularMarketChange ?? undefined,
         changePercent: quote.regularMarketChangePercent ?? undefined,
         source: 'yahoo',
@@ -142,7 +138,7 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
       }
     });
 
-    results.push(record as unknown as Snapshot);
+    results.push(record as Snapshot);
   }
 
   return results;
@@ -152,7 +148,6 @@ export async function getLatestSnapshots(symbols?: string[]): Promise<Snapshot[]
   const list = symbols && symbols.length > 0 ? symbols : await getTrackedTickers();
   if (!list || list.length === 0) return [];
 
-  // newest first, then de-dupe by symbol
   const records = await prisma.priceSnapshot.findMany({
     where: { symbol: { in: list.map((s) => s.toUpperCase()) } },
     orderBy: [{ asOfDate: 'desc' }, { createdAt: 'desc' }]
@@ -163,7 +158,7 @@ export async function getLatestSnapshots(symbols?: string[]): Promise<Snapshot[]
   for (const record of records) {
     if (!seen.has(record.symbol)) {
       seen.add(record.symbol);
-      latest.push(record as unknown as Snapshot);
+      latest.push(record as Snapshot);
     }
   }
 
