@@ -1,4 +1,3 @@
-import yahooFinance from 'yahoo-finance2';
 import { Prisma } from '@prisma/client';
 import prisma from './prisma';
 
@@ -31,35 +30,74 @@ export function getEnvTickers(): string[] {
 }
 
 /**
- * More reliable than quoteSummary for prices.
- * Works for AAPL, VOO, GC=F, SI=F, BTC-USD, etc.
+ * Convert user input into Stooq symbol format.
+ * If user types "AAPL" => "aapl.us"
+ * If user types "VOO"  => "voo.us"
+ * If user already typed something with "." (like "BMW.DE"), keep it.
  */
-export async function fetchQuote(symbol: string): Promise<Quote | null> {
+function toStooqSymbol(symbol: string): string {
+  const s = symbol.trim().toLowerCase();
+  if (!s) return '';
+  if (s.includes('.')) return s; // assume already stooq-style or has suffix
+  return `${s}.us`;
+}
+
+/**
+ * Fetch latest price from Stooq (no cookies/crumb; reliable on Vercel).
+ * Stooq CSV example:
+ * https://stooq.com/q/l/?s=aapl.us&f=sd2t2ohlcv&h&e=csv
+ */
+async function fetchStooqQuote(symbol: string): Promise<Quote | null> {
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return null;
 
+  const stooqSymbol = toStooqSymbol(normalized);
+  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooqSymbol)}&f=sd2t2ohlcv&h&e=csv`;
+
   try {
-    const q: any = await yahooFinance.quote(normalized);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) {
+      console.error(`[pricing] stooq http ${res.status} for ${normalized}`);
+      return null;
+    }
 
-    const price =
-      q?.regularMarketPrice ??
-      q?.postMarketPrice ??
-      q?.preMarketPrice ??
-      null;
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return null;
 
-    const currency = q?.currency ?? null;
+    // header: Symbol,Date,Time,Open,High,Low,Close,Volume
+    const row = lines[1].split(',');
+    const closeStr = row[6]; // Close
+    const close = closeStr ? Number(closeStr) : NaN;
+
+    if (!Number.isFinite(close)) {
+      // When Stooq doesn't know the symbol, it often returns "N/D"
+      console.error(`[pricing] stooq returned no close for ${normalized}: ${lines[1]}`);
+      return null;
+    }
+
+    // Very rough currency assumption: ".us" => USD
+    const currency = stooqSymbol.endsWith('.us') ? 'USD' : null;
 
     return {
       symbol: normalized,
       currency,
-      regularMarketPrice: price,
-      regularMarketChange: q?.regularMarketChange ?? null,
-      regularMarketChangePercent: q?.regularMarketChangePercent ?? null
+      regularMarketPrice: close,
+      regularMarketChange: null,
+      regularMarketChangePercent: null
     };
-  } catch (error) {
-    console.error(`[pricing] failed to fetch quote for ${normalized}`, error);
+  } catch (err) {
+    console.error(`[pricing] stooq fetch failed for ${normalized}`, err);
     return null;
   }
+}
+
+/**
+ * Main quote function used by cron.
+ * (We keep the same shape so the rest of your app/DB stays unchanged.)
+ */
+export async function fetchQuote(symbol: string): Promise<Quote | null> {
+  return fetchStooqQuote(symbol);
 }
 
 export async function upsertTicker(symbol: string) {
@@ -122,18 +160,19 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
       },
       update: {
         currency: quote.currency ?? undefined,
-        price: quote.regularMarketPrice,
+        price: new Prisma.Decimal(quote.regularMarketPrice),
+        // keep fields even if null in schema; store undefined to avoid overwriting with null
         change: quote.regularMarketChange ?? undefined,
         changePercent: quote.regularMarketChangePercent ?? undefined,
-        source: 'yahoo'
+        source: 'stooq'
       },
       create: {
         symbol,
         currency: quote.currency ?? undefined,
-        price: quote.regularMarketPrice,
+        price: new Prisma.Decimal(quote.regularMarketPrice),
         change: quote.regularMarketChange ?? undefined,
         changePercent: quote.regularMarketChangePercent ?? undefined,
-        source: 'yahoo',
+        source: 'stooq',
         asOfDate
       }
     });
