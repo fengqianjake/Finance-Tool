@@ -32,7 +32,13 @@ export function resolveDisplayCurrency(input?: string | null): SupportedCurrency
 }
 
 export function defaultSymbolForAsset(assetClass: AssetClass, symbol?: string | null): string | null {
-  if (symbol && symbol.trim()) return symbol.trim().toUpperCase();
+  // For STOCK/ETF, we expect user input. If empty, return null.
+  if (assetClass === 'STOCK' || assetClass === 'ETF') {
+    const s = (symbol || '').trim().toUpperCase();
+    return s ? s : null;
+  }
+
+  // For these, we can auto-map without user input
   switch (assetClass) {
     case 'GOLD':
       return 'GC=F';
@@ -82,39 +88,58 @@ export async function getPortfolioSnapshot(preferredCurrency?: string): Promise<
   const priceSymbols = holdings
     .map((h) => defaultSymbolForAsset(h.assetClass, h.symbol))
     .filter((s): s is string => Boolean(s));
+
   const priceSnapshots = priceSymbols.length > 0 ? await getLatestSnapshots(priceSymbols) : [];
   const priceMap = new Map(priceSnapshots.map((p) => [p.symbol, p]));
+
   const { rates: fxRates, latestAsOf: fxLastUpdated } = await getLatestFxRates();
 
   let priceLastUpdated: Date | null = null;
+
   const holdingViews: HoldingView[] = holdings.map((holding) => {
     const resolvedSymbol = defaultSymbolForAsset(holding.assetClass, holding.symbol);
     const units = Number(holding.units);
+
     let valueCurrency: string | null = currencyForAsset(holding.assetClass);
     let pricePerUnit: number | null = null;
     let priceAt: Date | null = null;
     let rawValue: number | null = null;
     let note: string | undefined;
 
-    if (holding.assetClass === 'STOCK' || holding.assetClass === 'ETF' || holding.assetClass === 'BITCOIN' || holding.assetClass === 'GOLD' || holding.assetClass === 'SILVER') {
+    const needsMarketPrice =
+      holding.assetClass === 'STOCK' ||
+      holding.assetClass === 'ETF' ||
+      holding.assetClass === 'BITCOIN' ||
+      holding.assetClass === 'GOLD' ||
+      holding.assetClass === 'SILVER';
+
+    if (needsMarketPrice) {
       if (resolvedSymbol && priceMap.has(resolvedSymbol)) {
         const snap = priceMap.get(resolvedSymbol)!;
         pricePerUnit = snap.price.toNumber();
         valueCurrency = snap.currency || 'USD';
         priceAt = snap.createdAt;
-        priceLastUpdated = priceLastUpdated ? new Date(Math.max(priceLastUpdated.getTime(), snap.createdAt.getTime())) : snap.createdAt;
+        priceLastUpdated = priceLastUpdated
+          ? new Date(Math.max(priceLastUpdated.getTime(), snap.createdAt.getTime()))
+          : snap.createdAt;
         rawValue = units * pricePerUnit;
       } else {
         rawValue = 0;
-        note = 'No price yet';
+        note = resolvedSymbol ? 'No price yet' : 'Missing symbol';
         valueCurrency = valueCurrency || 'USD';
       }
     } else {
+      // cash holdings: units is already currency amount
       rawValue = units;
+      if (!valueCurrency) valueCurrency = displayCurrency;
     }
 
-    const converted = valueCurrency ? convertCurrency(rawValue ?? 0, valueCurrency, displayCurrency, fxRates) : rawValue;
-    const valueInDisplay = converted ?? (valueCurrency === displayCurrency ? rawValue : null);
+    const converted = valueCurrency
+      ? convertCurrency(rawValue ?? 0, valueCurrency, displayCurrency, fxRates)
+      : rawValue;
+
+    const valueInDisplay =
+      converted ?? (valueCurrency === displayCurrency ? rawValue : null);
 
     return {
       id: holding.id,
