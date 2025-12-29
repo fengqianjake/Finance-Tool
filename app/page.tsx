@@ -1,7 +1,7 @@
-import { toNumber } from './lib/number';
 import Link from 'next/link';
 import TickerSelect from '../src/components/TickerSelect';
 import { ensureSeedTickers, getLatestSnapshots, getTrackedTickers } from './lib/pricing';
+import { getPortfolioSnapshot } from './lib/portfolio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -13,12 +13,32 @@ function formatNumber(value?: number | null, digits = 2) {
 
 export default async function HomePage() {
   await ensureSeedTickers();
+  const portfolioSnapshot = await getPortfolioSnapshot();
   const tickers = await getTrackedTickers();
   const snapshots = await getLatestSnapshots(tickers);
   const lastUpdated = snapshots.length > 0 ? snapshots.reduce((latest, snap) => Math.max(latest, snap.createdAt.getTime()), 0) : null;
+  const portfolioTotal = portfolioSnapshot.totalValue.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    style: 'currency',
+    currency: portfolioSnapshot.displayCurrency
+  });
 
   return (
     <div className="grid grid-2">
+      <section className="card">
+        <h2 style={{ margin: '4px 0' }}>Portfolio total</h2>
+        <p className="muted" style={{ margin: 0 }}>Aggregate value from the portfolio portal, converted to your preferred display currency.</p>
+        <div className="badge" style={{ marginTop: 12 }}>Total value: {portfolioTotal}</div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+          <span className="muted">Display currency: {portfolioSnapshot.displayCurrency}</span>
+          <span className="muted">Prices updated: {portfolioSnapshot.priceLastUpdated ? new Date(portfolioSnapshot.priceLastUpdated).toLocaleString() : '—'}</span>
+          <span className="muted">FX updated: {portfolioSnapshot.fxLastUpdated ? new Date(portfolioSnapshot.fxLastUpdated).toLocaleString() : '—'}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+          <Link className="button" href="/portal">Open portfolio portal</Link>
+        </div>
+      </section>
       <section className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
@@ -51,7 +71,7 @@ export default async function HomePage() {
                   <td>
                     <Link href={`/tickers/${snap.symbol}`}>{snap.symbol}</Link>
                   </td>
-                  <td>{formatNumber(toNumber(snap.price))}</td>
+                  <td>{formatNumber(snap.price)}</td>
                   <td style={{ color: change && change < 0 ? 'var(--danger)' : '#6ee7b7' }}>
                     {change === null || change === undefined ? '—' : isPercent ? `${formatNumber(change)}%` : formatNumber(change)}
                   </td>

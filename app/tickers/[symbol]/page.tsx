@@ -1,4 +1,3 @@
-import { toNumber } from '../../lib/number';
 import Link from 'next/link';
 import { getHistoryForSymbol } from '../../lib/pricing';
 import LineChart from '../../../src/components/LineChart';
@@ -14,7 +13,7 @@ function formatNumber(value?: number | null, digits = 2) {
 export default async function TickerPage({ params }: { params: { symbol: string } }) {
   const history = await getHistoryForSymbol(params.symbol, 60);
   const latest = history[0];
-  const points = history.map((h) => ({ x: h.createdAt, y: toNumber(h.price) ?? 0 })).reverse();
+  const points = history.map((h) => ({ x: h.createdAt, y: h.price })).reverse();
 
   return (
     <div className="grid">
@@ -34,7 +33,7 @@ export default async function TickerPage({ params }: { params: { symbol: string 
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             <div className="tile">
               <span className="muted">Price</span>
-              <strong style={{ fontSize: 28 }}>{formatNumber(toNumber(latest.price))}</strong>
+              <strong style={{ fontSize: 28 }}>{formatNumber(latest.price)}</strong>
               <span className="muted">Currency: {latest.currency ?? '—'}</span>
             </div>
             <div className="tile">
