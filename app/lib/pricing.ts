@@ -76,7 +76,7 @@ async function fetchStooqQuote(symbol: string): Promise<Quote | null> {
       return null;
     }
 
-    // Very rough currency assumption: ".us" => USD
+    // Rough currency assumption: ".us" => USD
     const currency = stooqSymbol.endsWith('.us') ? 'USD' : null;
 
     return {
@@ -94,7 +94,6 @@ async function fetchStooqQuote(symbol: string): Promise<Quote | null> {
 
 /**
  * Main quote function used by cron.
- * (We keep the same shape so the rest of your app/DB stays unchanged.)
  */
 export async function fetchQuote(symbol: string): Promise<Quote | null> {
   return fetchStooqQuote(symbol);
@@ -161,7 +160,6 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
       update: {
         currency: quote.currency ?? undefined,
         price: new Prisma.Decimal(quote.regularMarketPrice),
-        // keep fields even if null in schema; store undefined to avoid overwriting with null
         change: quote.regularMarketChange ?? undefined,
         changePercent: quote.regularMarketChangePercent ?? undefined,
         source: 'stooq'
