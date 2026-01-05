@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AssetClass, Prisma } from '@prisma/client';
 import prisma from '../../lib/prisma';
-import { defaultSymbolForAsset, getOrCreatePortfolio, getPortfolioSnapshot, resolveDisplayCurrency } from '../../lib/portfolio';
+import { defaultSymbolForAsset, getOrCreatePortfolio, getPortfolioSnapshot } from '../../lib/portfolio';
 import { upsertTicker } from '../../lib/pricing';
 
 export const dynamic = 'force-dynamic';
@@ -26,27 +26,36 @@ export async function POST(req: NextRequest) {
     const normalizedAssetClass = assetClass as AssetClass;
 
     const parsedUnits = typeof units === 'string' ? Number(units) : units;
-    if (parsedUnits === undefined || parsedUnits === null || Number.isNaN(parsedUnits)) {
-      return NextResponse.json({ error: 'Units are required' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+    if (parsedUnits === undefined || parsedUnits === null || Number.isNaN(parsedUnits) || parsedUnits <= 0) {
+      return NextResponse.json({ error: 'Units must be greater than 0' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
 
     const portfolio = await getOrCreatePortfolio();
-    const resolvedSymbol = defaultSymbolForAsset(normalizedAssetClass, symbol);
+    const symbolInput = typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
+    const requiresSymbol = normalizedAssetClass === 'STOCK' || normalizedAssetClass === 'ETF';
+    const isCash =
+      normalizedAssetClass === 'CASH_USD' || normalizedAssetClass === 'CASH_EUR' || normalizedAssetClass === 'CASH_CNY';
+
+    if (requiresSymbol && !symbolInput) {
+      return NextResponse.json({ error: 'Symbol is required for stocks and ETFs' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    const storedSymbol = isCash ? null : symbolInput || null;
+    const resolvedSymbol = defaultSymbolForAsset(normalizedAssetClass, storedSymbol);
     if (resolvedSymbol) {
       await upsertTicker(resolvedSymbol);
     }
 
-    await prisma.holding.create({
+    const holding = await prisma.holding.create({
       data: {
         assetClass: normalizedAssetClass,
-        symbol: symbol ? String(symbol).trim().toUpperCase() : null,
+        symbol: storedSymbol,
         units: new Prisma.Decimal(parsedUnits),
         portfolioId: portfolio.id
       }
     });
 
-    const snapshot = await getPortfolioSnapshot();
-    return NextResponse.json(snapshot, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ok: true, holdingId: holding.id }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[holdings] failed to create holding', error);
     return NextResponse.json({ error: 'Failed to save holding' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
@@ -56,7 +65,6 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  const displayCurrency = resolveDisplayCurrency(searchParams.get('displayCurrency'));
   if (!id) {
     return NextResponse.json({ error: 'Missing holding id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
@@ -65,6 +73,5 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     console.error('[holdings] failed to delete', error);
   }
-  const snapshot = await getPortfolioSnapshot(displayCurrency);
-  return NextResponse.json(snapshot, { headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
 }

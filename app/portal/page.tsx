@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getPortfolioSnapshot } from '../lib/portfolio';
 import { ensureSeedTickers, getLatestSnapshots, getTrackedTickers } from '../lib/pricing';
 import PortfolioPortal, { ClientPortfolioSnapshot } from '../../src/components/PortfolioPortal';
+import TickerDropdown from '../../src/components/TickerDropdown';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -42,6 +43,7 @@ export default async function PortalPage() {
           </Link>
         </div>
       </section>
+      <TickerDropdown />
       <PortfolioPortal initialSnapshot={initialSnapshot} />
       <section className="card">
         <h2 style={{ margin: '4px 0' }}>Tracked tickers</h2>

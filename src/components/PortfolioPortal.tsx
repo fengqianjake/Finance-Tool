@@ -90,8 +90,7 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload.error || 'Failed to save');
       }
-      const data = (await res.json()) as ClientPortfolioSnapshot;
-      setSnapshot(data);
+      await refreshSnapshot();
       setUnits('');
       if (!enabledSymbol) setSymbol('');
     } catch (err: any) {
@@ -105,14 +104,13 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
     setSubmitting(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ id, displayCurrency: snapshot.displayCurrency });
+      const params = new URLSearchParams({ id });
       const res = await fetch(`/api/holdings?${params.toString()}`, { method: 'DELETE', cache: 'no-store' });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload.error || 'Failed to delete');
       }
-      const data = (await res.json()) as ClientPortfolioSnapshot;
-      setSnapshot(data);
+      await refreshSnapshot();
     } catch (err: any) {
       setError(err.message || 'Error deleting holding');
     } finally {
