@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AssetClass {
+  STOCK
+  ETF
+  CASH_USD
+  CASH_EUR
+  CASH_CNY
+  GOLD
+  SILVER
+  BITCOIN
+}
+
+model PriceSnapshot {
+  id            String   @id @default(cuid())
+  symbol        String
+  currency      String?
+  price         Float
+  change        Float?
+  changePercent Float?
+  source        String   @default("yahoo")
+  createdAt     DateTime @default(now())
+}
+
+model Ticker {
+  id        String   @id @default(cuid())
+  symbol    String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Portfolio {
+  id              String   @id @default(cuid())
+  displayCurrency String   @default("USD")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  holdings        Holding[]
+}
+
+model Holding {
+  id          String     @id @default(cuid())
+  symbol      String?
+  assetClass  AssetClass
+  units       Decimal    @db.Decimal(18, 6)
+  portfolio   Portfolio? @relation(fields: [portfolioId], references: [id])
+  portfolioId String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model FxRateSnapshot {
+  id            String   @id @default(cuid())
+  baseCurrency  String
+  quoteCurrency String
+  rate          Decimal  @db.Decimal(18, 8)
+  asOfDate      DateTime
+  source        String   @default("frankfurter")
+  createdAt     DateTime @default(now())
+
+  @@unique([baseCurrency, quoteCurrency, asOfDate])
+}
