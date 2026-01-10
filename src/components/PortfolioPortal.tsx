@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 export type ClientHoldingView = {
@@ -60,6 +60,7 @@ function symbolEnabled(assetClass: string) {
 
 export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: ClientPortfolioSnapshot }) {
   const [snapshot, setSnapshot] = useState<ClientPortfolioSnapshot>(initialSnapshot);
+  const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [assetClass, setAssetClass] = useState<string>('STOCK');
   const [symbol, setSymbol] = useState<string>('');
   const [units, setUnits] = useState<string>('');
@@ -74,6 +75,33 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
     const data = (await res.json()) as ClientPortfolioSnapshot;
     setSnapshot(data);
   }
+
+  async function refreshPricesIfStale() {
+    if (refreshingPrices) return;
+    if (!snapshot.priceLastUpdated) {
+      if (snapshot.holdings.length === 0) return;
+    }
+    const lastUpdated = snapshot.priceLastUpdated ? new Date(snapshot.priceLastUpdated).getTime() : 0;
+    if (Number.isNaN(lastUpdated)) return;
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    if (lastUpdated > dayAgo || refreshingPrices) return;
+
+    setRefreshingPrices(true);
+    try {
+      const res = await fetch('/api/cron', { cache: 'no-store' });
+      if (res.ok) {
+        await refreshSnapshot();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRefreshingPrices(false);
+    }
+  }
+
+  useEffect(() => {
+    refreshPricesIfStale();
+  }, [snapshot.priceLastUpdated, snapshot.holdings.length]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -149,8 +177,7 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
         <div>
           <h2 style={{ margin: '4px 0' }}>Portfolio portal</h2>
           <p className="muted" style={{ margin: 0 }}>
-            Track holdings with daily FX refresh and Yahoo prices captured by the cron job. Prices and FX are read from the
-            database—no API keys or browser calls required.
+            Track holdings with daily updates for prices and currency conversions. Prices are stored automatically.
           </p>
         </div>
         <Link className="button secondary" href="/">Back to prices</Link>
@@ -177,7 +204,7 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
 
       <form onSubmit={handleSubmit} style={{ marginTop: 16 }} className="grid grid-2">
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="muted">Asset class</span>
+          <span className="muted">Asset type</span>
           <select
             value={assetClass}
             onChange={(e) => {
@@ -237,67 +264,49 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
         </div>
       )}
 
-      <table style={{ marginTop: 20 }}>
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th>Symbol</th>
-            <th>Units</th>
-            <th>Value ({snapshot.displayCurrency})</th>
-            <th>Price source</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {snapshot.holdings.length === 0 && (
-            <tr>
-              <td colSpan={6} className="muted">
-                No holdings yet. Add stocks, ETFs, metals, crypto, or cash balances to see totals.
-              </td>
-            </tr>
-          )}
-          {snapshot.holdings.map((holding) => (
-            <tr key={holding.id}>
-              <td>{holding.assetClass.replace('_', ' ')}</td>
-              <td>
-                {holding.resolvedSymbol || '—'}
-                {holding.symbol && holding.resolvedSymbol && holding.symbol !== holding.resolvedSymbol ? (
-                  <span className="muted" style={{ marginLeft: 6 }}>
-                    ({holding.symbol})
+      <div style={{ marginTop: 20, display: 'grid', gap: 12 }}>
+        {snapshot.holdings.length === 0 && (
+          <div className="muted">No holdings yet. Add stocks, ETFs, metals, crypto, or cash balances to see totals.</div>
+        )}
+        {snapshot.holdings.map((holding) => {
+          const summaryValue =
+            holding.valueInDisplay !== null ? formatNumber(holding.valueInDisplay, snapshot.displayCurrency) : '—';
+          return (
+            <details key={holding.id} className="card" style={{ padding: 16 }}>
+              <summary style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <strong>{holding.resolvedSymbol || holding.symbol || holding.assetClass.replace('_', ' ')}</strong>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {holding.assetClass.replace('_', ' ')} · {formatNumber(holding.units)} units
                   </span>
-                ) : null}
-              </td>
-              <td>{formatNumber(holding.units)}</td>
-              <td>
-                {holding.valueInDisplay !== null ? (
-                  <strong>{formatNumber(holding.valueInDisplay, snapshot.displayCurrency)}</strong>
-                ) : (
-                  <span className="muted">Waiting for FX</span>
+                </div>
+                <div className="badge">Value: {summaryValue}</div>
+              </summary>
+              <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                {holding.resolvedSymbol && (
+                  <div className="muted">Symbol: {holding.resolvedSymbol}</div>
                 )}
-              </td>
-              <td>
                 {holding.pricePerUnit !== null ? (
                   <div>
-                    <div>{formatNumber(holding.pricePerUnit, holding.valueCurrency ?? undefined)}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>as of {formatDate(holding.priceAt)}</div>
+                    <div>Price per unit: {formatNumber(holding.pricePerUnit, holding.valueCurrency ?? undefined)}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>Last price update: {formatDate(holding.priceAt)}</div>
                   </div>
                 ) : (
-                  <span className="muted">{holding.note || 'No price needed'}</span>
+                  <div className="muted">{holding.note || 'No price needed'}</div>
                 )}
-              </td>
-              <td>
                 <button className="button secondary" onClick={() => handleDelete(holding.id)} disabled={submitting}>
                   Remove
                 </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+            </details>
+          );
+        })}
+      </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
         <span className="muted">Prices last updated: {formatDate(snapshot.priceLastUpdated)}</span>
         <span className="muted">FX last updated: {formatDate(snapshot.fxLastUpdated)}</span>
+        {refreshingPrices && <span className="muted">Updating prices…</span>}
       </div>
     </section>
   );

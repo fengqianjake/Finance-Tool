@@ -43,9 +43,9 @@ export default async function HomePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
             <h2 style={{ margin: '4px 0' }}>Tracked tickers</h2>
-            <p className="muted" style={{ margin: 0 }}>Saved tickers are stored in Postgres and refreshed via Yahoo Finance once per day.</p>
+            <p className="muted" style={{ margin: 0 }}>Saved tickers refresh automatically each day.</p>
           </div>
-          <Link className="button" href="/api/cron" prefetch={false}>Run cron now</Link>
+          <Link className="button" href="/api/cron" prefetch={false}>Refresh prices now</Link>
         </div>
         <table>
           <thead>
@@ -82,7 +82,7 @@ export default async function HomePage() {
             })}
           </tbody>
         </table>
-        <p className="muted" style={{ marginTop: 12 }}>Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data yet — trigger cron above after adding tickers.'}</p>
+        <p className="muted" style={{ marginTop: 12 }}>Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data yet — add tickers to begin.'}</p>
       </section>
 
       <TickerSelect />
@@ -90,14 +90,13 @@ export default async function HomePage() {
       <section className="card">
         <h2 style={{ margin: '4px 0' }}>How it works</h2>
         <ul className="muted" style={{ lineHeight: 1.6 }}>
-          <li>Use the search box to add any global symbol (equity/ETF/bond). We store it in Postgres.</li>
-          <li>A Vercel Cron job calls the internal <code>/api/cron</code> route daily in production.</li>
-          <li>Prices are fetched server-side via Yahoo Finance and stored as snapshots.</li>
-          <li>The UI reads directly from the database (no caching) and exposes history per ticker.</li>
+          <li>Use the search box to add any global symbol (equity/ETF/bond).</li>
+          <li>Prices refresh automatically each day.</li>
+          <li>Price history is stored so you can review past values.</li>
+          <li>The portal shows each ticker with its latest stored price.</li>
         </ul>
         <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-          <Link className="button" href="/api/prices" prefetch={false}>View JSON feed</Link>
-          <Link className="button secondary" href="https://github.com/vercel/docs/tree/main/examples/cron" target="_blank" rel="noreferrer">Cron docs</Link>
+          <Link className="button" href="/api/prices" prefetch={false}>Download price data</Link>
         </div>
       </section>
     </div>

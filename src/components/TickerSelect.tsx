@@ -140,7 +140,7 @@ export default function TickerSelect() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div>
           <h2 style={{ margin: '4px 0' }}>Add a ticker</h2>
-          <p className="muted" style={{ margin: 0 }}>Search across global equities, ETFs, and bonds. Saved tickers are captured by the cron job automatically.</p>
+          <p className="muted" style={{ margin: 0 }}>Search across global equities, ETFs, and bonds. Saved tickers refresh automatically each day.</p>
         </div>
       </div>
       <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>

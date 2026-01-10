@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 type TickerResult = {
   symbol: string;
   name: string;
-  assetClass: string;
 };
 
 const assetOptions = [
@@ -38,16 +37,24 @@ export default function TickerDropdown() {
       setLoading(true);
       setError(null);
       try {
+        const trimmed = query.trim();
         const params = new URLSearchParams();
-        if (query.trim()) params.set('q', query.trim());
-        const res = await fetch(`/api/tickers?${params.toString()}`, { cache: 'no-store' });
+        const endpoint = trimmed ? '/api/symbols/search' : '/api/tickers';
+        if (trimmed) params.set('q', trimmed);
+        const res = await fetch(`${endpoint}?${params.toString()}`, { cache: 'no-store' });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || 'Failed to search tickers');
         }
         const data = await res.json();
         if (mounted) {
-          setResults(Array.isArray(data.results) ? data.results : []);
+          const nextResults = Array.isArray(data.results)
+            ? data.results.map((item: any) => ({
+                symbol: item.symbol,
+                name: item.name || item.longname || item.shortname || item.symbol
+              }))
+            : [];
+          setResults(nextResults);
         }
       } catch (err: any) {
         console.error(err);
@@ -102,12 +109,12 @@ export default function TickerDropdown() {
     <section className="card">
       <h2 style={{ margin: '4px 0' }}>Add a holding</h2>
       <p className="muted" style={{ margin: 0 }}>
-        Search by company name or symbol, pick an asset class, and add units to your portfolio.
+        Search by company name or symbol, pick an asset type, and add units to your portfolio.
       </p>
 
       <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="muted">Search ticker directory</span>
+          <span className="muted">Search companies or symbols</span>
           <input
             type="text"
             value={query}
@@ -141,7 +148,7 @@ export default function TickerDropdown() {
         )}
 
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="muted">Asset class</span>
+          <span className="muted">Asset type</span>
           <select
             value={assetClass}
             onChange={(e) => setAssetClass(e.target.value)}

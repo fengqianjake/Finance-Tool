@@ -36,11 +36,10 @@ export default async function PortalPage() {
         <p className="muted" style={{ margin: 0 }}>
           Input holdings across asset classes, choose a display currency, and see totals using stored Yahoo Finance prices and daily FX rates.
         </p>
+        {/* What changed: added a searchable holdings add-on and a foldable holdings list with auto-refresh on stale prices. */}
         <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
           <Link className="button" href="/">View ticker overview</Link>
-          <Link className="button secondary" href="/api/holdings" prefetch={false}>
-            Holdings JSON
-          </Link>
+          <Link className="button secondary" href="/api/holdings" prefetch={false}>Download holdings</Link>
         </div>
       </section>
       <TickerDropdown />
@@ -83,7 +82,7 @@ export default async function PortalPage() {
             })}
           </tbody>
         </table>
-        <p className="muted" style={{ marginTop: 12 }}>Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data yet — trigger cron after adding tickers.'}</p>
+        <p className="muted" style={{ marginTop: 12 }}>Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data yet — add tickers to begin.'}</p>
       </section>
     </div>
   );

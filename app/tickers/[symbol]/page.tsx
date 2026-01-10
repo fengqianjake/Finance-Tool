@@ -26,7 +26,7 @@ export default async function TickerPage({ params }: { params: { symbol: string 
             <h2 style={{ margin: '4px 0' }}>{params.symbol.toUpperCase()}</h2>
             <p className="muted" style={{ margin: 0 }}>Latest price and the last {history.length} snapshots.</p>
           </div>
-          <Link className="button" href={`/api/prices?symbol=${params.symbol}`} prefetch={false}>JSON</Link>
+          <Link className="button" href={`/api/prices?symbol=${params.symbol}`} prefetch={false}>Download data</Link>
         </div>
 
         {latest ? (
@@ -43,7 +43,7 @@ export default async function TickerPage({ params }: { params: { symbol: string 
             </div>
           </div>
         ) : (
-          <p className="muted">No data yet for this symbol. Add it via the search box on the home page and trigger the cron job.</p>
+          <p className="muted">No data yet for this symbol. Add it via the search box on the home page and wait for the next daily refresh.</p>
         )}
 
         <div style={{ marginTop: 24 }}>
