@@ -68,8 +68,24 @@ export async function ensureSeedTickers(): Promise<string[]> {
 export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapshot[]> {
   const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase())));
   const results: Snapshot[] = [];
+  const now = new Date();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
 
   for (const symbol of uniqueSymbols) {
+    const existing = await prisma.priceSnapshot.findFirst({
+      where: {
+        symbol,
+        createdAt: {
+          gte: dayStart,
+          lt: dayEnd
+        }
+      }
+    });
+    if (existing) {
+      continue;
+    }
+
     const quote = await fetchQuote(symbol);
     if (!quote?.regularMarketPrice) {
       continue;

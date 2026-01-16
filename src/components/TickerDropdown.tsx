@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 type TickerResult = {
   symbol: string;
   name: string;
+  exchange?: string;
 };
 
 const assetOptions = [
@@ -35,31 +36,37 @@ export default function TickerDropdown() {
   useEffect(() => {
     let mounted = true;
     const handle = setTimeout(async () => {
+      const trimmed = query.trim();
+      if (trimmed.length < 2) {
+        if (mounted) {
+          setResults([]);
+          setLoadingResults(false);
+        }
+        return;
+      }
+
       setLoadingResults(true);
       setError(null);
       try {
-        const trimmed = query.trim();
-        const params = new URLSearchParams();
-        const endpoint = trimmed ? '/api/symbols/search' : '/api/tickers';
-        if (trimmed) params.set('q', trimmed);
-        const res = await fetch(`${endpoint}?${params.toString()}`, { cache: 'no-store' });
+        const params = new URLSearchParams({ q: trimmed });
+        const res = await fetch(`/api/symbols?${params.toString()}`, { cache: 'no-store' });
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || 'Failed to search tickers');
+          throw new Error('Failed to search tickers');
         }
         const data = await res.json();
         if (mounted) {
-          const nextResults = Array.isArray(data.results)
-            ? data.results.map((item: any) => ({
+          const nextResults = Array.isArray(data)
+            ? data.map((item: any) => ({
                 symbol: item.symbol,
-                name: item.name || item.longname || item.shortname || item.symbol
+                name: item.name || item.symbol,
+                exchange: item.exchange
               }))
             : [];
           setResults(nextResults);
         }
       } catch (err: any) {
         console.error(err);
-        if (mounted) setError(err.message || 'Unable to load tickers');
+        if (mounted) setError('Unable to load tickers');
       } finally {
         if (mounted) setLoadingResults(false);
       }
@@ -139,7 +146,9 @@ export default function TickerDropdown() {
                 style={{ textAlign: 'left' }}
               >
                 <strong>{item.name}</strong>
-                <span className="muted" style={{ display: 'block', fontSize: 13 }}>{item.symbol}</span>
+                <span className="muted" style={{ display: 'block', fontSize: 13 }}>
+                  {item.symbol}{item.exchange ? ` · ${item.exchange}` : ''}
+                </span>
               </button>
             ))}
           </div>

@@ -5,16 +5,9 @@ import { useRouter } from 'next/navigation';
 
 type SymbolResult = {
   symbol: string;
-  shortname?: string;
-  longname?: string;
   exchange?: string;
-  quoteType?: string;
   currency?: string;
-};
-
-type SymbolOption = {
-  symbol: string;
-  label: string;
+  name?: string;
 };
 
 const debounceDelay = 300;
@@ -23,44 +16,13 @@ export default function TickerSelect() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SymbolResult[]>([]);
-  const [options, setOptions] = useState<SymbolOption[]>([]);
-  const [selectedSymbol, setSelectedSymbol] = useState('');
   const [manualSymbol, setManualSymbol] = useState('');
-  const [optionsLoading, setOptionsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    setOptionsLoading(true);
-    fetch('/api/symbols', { cache: 'no-store' })
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || 'Failed to load symbols');
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (!mounted) return;
-        setOptions(Array.isArray(data.symbols) ? data.symbols : []);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (mounted) setError('Unable to load symbol list');
-      })
-      .finally(() => {
-        if (mounted) setOptionsLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) {
+    if (!trimmed || trimmed.length < 2) {
       setResults([]);
       setError(null);
       return;
@@ -70,15 +32,14 @@ export default function TickerSelect() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/symbols/search?q=${encodeURIComponent(trimmed)}`, { cache: 'no-store' });
+        const res = await fetch(`/api/symbols?q=${encodeURIComponent(trimmed)}`, { cache: 'no-store' });
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          setError(body.error || 'Search failed');
+          setError('Search failed');
           setResults([]);
           return;
         }
         const data = await res.json();
-        setResults(Array.isArray(data.results) ? data.results : []);
+        setResults(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
         setError('Unable to search right now');
@@ -124,11 +85,6 @@ export default function TickerSelect() {
     await saveSymbol(symbol, true);
   }
 
-  async function handleAddSelected() {
-    if (!selectedSymbol) return;
-    await saveSymbol(selectedSymbol);
-  }
-
   async function handleAddManual() {
     if (!manualSymbol.trim()) return;
     await saveSymbol(manualSymbol.trim().toUpperCase());
@@ -142,27 +98,6 @@ export default function TickerSelect() {
           <h2 style={{ margin: '4px 0' }}>Add a ticker</h2>
           <p className="muted" style={{ margin: 0 }}>Search across global equities, ETFs, and bonds. Saved tickers refresh automatically each day.</p>
         </div>
-      </div>
-      <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="muted">Select a symbol</span>
-          <select
-            value={selectedSymbol}
-            onChange={(e) => setSelectedSymbol(e.target.value)}
-            disabled={optionsLoading || loading}
-            style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 16 }}
-          >
-            <option value="">Choose a company or asset</option>
-            {options.map((option) => (
-              <option key={option.symbol} value={option.symbol}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="button" type="button" onClick={handleAddSelected} disabled={!selectedSymbol || loading || optionsLoading}>
-          {optionsLoading ? 'Loading list...' : 'Add selected'}
-        </button>
       </div>
       <div style={{ marginTop: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -196,7 +131,7 @@ export default function TickerSelect() {
       {results.length > 0 && (
         <ul style={{ listStyle: 'none', padding: 0, marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {results.map((result) => {
-            const label = result.longname || result.shortname || '';
+            const label = result.name || '';
             return (
               <li key={result.symbol}>
                 <button
@@ -210,8 +145,7 @@ export default function TickerSelect() {
                     <strong>{result.symbol}</strong>
                     <span className="muted" style={{ fontSize: 14 }}>
                       {label ? `${label} — ` : ''}
-                      {result.exchange || 'Exchange unknown'}
-                      {result.quoteType ? ` [${result.quoteType}]` : ''}
+                      {result.exchange || 'Exchange'}
                       {result.currency ? ` · ${result.currency}` : ''}
                     </span>
                   </div>
