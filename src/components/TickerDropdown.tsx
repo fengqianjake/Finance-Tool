@@ -29,12 +29,13 @@ export default function TickerDropdown() {
   const [assetClass, setAssetClass] = useState('STOCK');
   const [units, setUnits] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const handle = setTimeout(async () => {
-      setLoading(true);
+      setLoadingResults(true);
       setError(null);
       try {
         const trimmed = query.trim();
@@ -60,7 +61,7 @@ export default function TickerDropdown() {
         console.error(err);
         if (mounted) setError(err.message || 'Unable to load tickers');
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setLoadingResults(false);
       }
     }, debounceDelay);
 
@@ -127,7 +128,8 @@ export default function TickerDropdown() {
         <div>
           <p className="muted" style={{ margin: '0 0 6px' }}>Matches</p>
           <div style={{ display: 'grid', gap: 8 }}>
-            {results.length === 0 && !loading && <span className="muted">No matches yet.</span>}
+            {loadingResults && <span className="muted">Searching…</span>}
+            {results.length === 0 && !loadingResults && <span className="muted">No matches yet.</span>}
             {results.map((item) => (
               <button
                 key={item.symbol}

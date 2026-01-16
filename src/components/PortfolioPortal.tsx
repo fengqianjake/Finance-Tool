@@ -183,14 +183,24 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
         <Link className="button secondary" href="/">Back to prices</Link>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16 }}>
-        <div>
-          <p className="muted" style={{ margin: '0 0 4px' }}>Display currency</p>
+      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: 16 }}>
+        <div className="tile">
+          <span className="muted">Total value</span>
+          <strong style={{ fontSize: 24 }}>{totalLabel}</strong>
+          <span className="muted">Display currency: {snapshot.displayCurrency}</span>
+        </div>
+        <div className="tile">
+          <span className="muted">Prices updated</span>
+          <strong style={{ fontSize: 20 }}>{formatDate(snapshot.priceLastUpdated)}</strong>
+          <span className="muted">FX updated: {formatDate(snapshot.fxLastUpdated)}</span>
+        </div>
+        <div className="tile">
+          <span className="muted">Display currency</span>
           <select
             value={snapshot.displayCurrency}
             onChange={(e) => handleDisplayCurrencyChange(e.target.value)}
             disabled={submitting}
-            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', marginTop: 8 }}
           >
             {displayCurrencies.map((c) => (
               <option key={c} value={c}>
@@ -199,10 +209,9 @@ export default function PortfolioPortal({ initialSnapshot }: { initialSnapshot: 
             ))}
           </select>
         </div>
-        <div className="badge">Total value: {totalLabel}</div>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: 16 }} className="grid grid-2">
+      <form onSubmit={handleSubmit} style={{ marginTop: 20 }} className="grid grid-2">
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span className="muted">Asset type</span>
           <select
