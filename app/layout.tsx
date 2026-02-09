@@ -2,8 +2,8 @@ import './globals.css';
 import { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'Portfolio Snapshot',
-  description: 'Live ticker tracking powered by Yahoo Finance with daily refreshes.'
+  title: 'Portfolio',
+  description: 'Track your investments'
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -11,18 +11,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <header>
-          <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+          <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div className="badge">Live • Daily price refresh</div>
-              <h1 style={{ margin: '8px 0 4px', fontSize: 28 }}>Portfolio Snapshot</h1>
-              <p className="muted" style={{ margin: 0 }}>Server-side Yahoo Finance pricing with history stored for your portfolios.</p>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>Portfolio</h1>
             </div>
+            <nav style={{ display: 'flex', gap: 20 }}>
+              <a href="/" style={{ fontSize: 15, fontWeight: 500, color: 'var(--muted)' }}>Prices</a>
+              <a href="/portal" style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Portfolio</a>
+            </nav>
           </div>
         </header>
-        <main className="container" style={{ paddingTop: 24, paddingBottom: 24 }}>
+        <main className="container" style={{ paddingTop: 24, paddingBottom: 40 }}>
           {children}
         </main>
-        <footer>Prices refresh automatically each day.</footer>
       </body>
     </html>
   );

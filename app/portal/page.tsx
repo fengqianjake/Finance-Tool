@@ -37,30 +37,33 @@ export default async function PortalPage() {
 
   return (
     <div className="grid">
-      <section className="card">
-        <h1 style={{ margin: '4px 0' }}>Portfolio portal</h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Input holdings across asset classes, choose a display currency, and see totals using stored Yahoo Finance prices and daily FX rates.
-        </p>
-        {/* What changed: added a searchable holdings add-on and a foldable holdings list with auto-refresh on stale prices. */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-          <Link className="button" href="/">View ticker overview</Link>
-          <Link className="button secondary" href="/api/holdings" prefetch={false}>Download holdings</Link>
-        </div>
-      </section>
-      <TickerDropdown />
+      {/* Portfolio Value & Holdings */}
       <PortfolioPortal initialSnapshot={initialSnapshot} />
+      
+      {/* Add Holding Form */}
+      <TickerDropdown />
+      
+      {/* Tracked Tickers */}
       <section className="card">
-        <h2 style={{ margin: '4px 0' }}>Tracked tickers</h2>
-        <p className="muted" style={{ margin: 0 }}>Choose a ticker to view its latest price details.</p>
+        <h2 style={{ margin: '4px 0', fontSize: 18, fontWeight: 600 }}>Tracked tickers</h2>
+        <p className="muted" style={{ margin: '0 0 12px 0', fontSize: 14 }}>
+          View price details for tracked symbols
+        </p>
+        
         {tickers.length === 0 ? (
-          <p className="muted" style={{ marginTop: 12 }}>Add symbols from the dropdown on the homepage to start tracking.</p>
+          <p className="muted" style={{ marginTop: 12 }}>No tickers tracked yet.</p>
         ) : (
-          <div style={{ marginTop: 12 }}>
-            <TrackedTickerDropdown tickers={trackedOptions} />
-          </div>
+          <TrackedTickerDropdown tickers={trackedOptions} />
         )}
-        <p className="muted" style={{ marginTop: 12 }}>Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data yet — add tickers to begin.'}</p>
+        
+        <p className="muted" style={{ marginTop: 16, fontSize: 13 }}>
+          Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'No data'}
+        </p>
+        
+        <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
+          <Link className="button secondary" href="/">View all prices</Link>
+          <Link className="button secondary" href="/api/holdings" prefetch={false}>Export JSON</Link>
+        </div>
       </section>
     </div>
   );
