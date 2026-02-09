@@ -99,3 +99,4 @@ Migrations live in `prisma/migrations` (0001_init, 0002_add_tickers, 0003_portfo
 - `src/components/TickerSelect.tsx` – client combobox to search and save tickers.
 - `prisma/schema.prisma` & `prisma/migrations/*` – data model and migrations.
 - `vercel.json` – Vercel Cron configuration (daily).
+// Force redeploy
