@@ -5,6 +5,7 @@ import { getPortfolioSnapshot } from './lib/portfolio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// Deployed: 2026-02-09
 
 function formatNumber(value?: number | null, digits = 2) {
   if (value === undefined || value === null || Number.isNaN(value)) return '—';
