@@ -78,7 +78,7 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
     const existing = await prisma.priceSnapshot.findFirst({
       where: {
         symbol,
-        createdAt: {
+        asOfDate: {
           gte: dayStart,
           lt: dayEnd
         }
@@ -99,7 +99,8 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
         currency: quote.currency || undefined,
         price: quote.regularMarketPrice,
         change: quote.regularMarketChange ?? undefined,
-        changePercent: quote.regularMarketChangePercent ?? undefined
+        changePercent: quote.regularMarketChangePercent ?? undefined,
+        asOfDate: dayStart
       }
     });
 
