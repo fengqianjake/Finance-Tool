@@ -44,6 +44,9 @@ export default function TickerDropdown() {
   const [selected, setSelected] = useState<TickerResult | null>(null);
   const [assetClass, setAssetClass] = useState('STOCK');
   const [units, setUnits] = useState('');
+  const [value, setValue] = useState('');
+  const [inputMode, setInputMode] = useState<'units' | 'value'>('units');
+  const [valueCurrency, setValueCurrency] = useState('EUR');
   const [loading, setLoading] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,10 +109,14 @@ export default function TickerDropdown() {
   }, [showSearch]);
 
   const canSubmit = useMemo(() => {
-    if (!units || Number(units) <= 0) return false;
+    if (inputMode === 'units') {
+      if (!units || Number(units) <= 0) return false;
+    } else {
+      if (!value || Number(value) <= 0) return false;
+    }
     if (isStockOrETF(assetClass)) return Boolean(selected?.symbol);
     return true;
-  }, [assetClass, selected, units]);
+  }, [assetClass, selected, units, value, inputMode]);
 
   function handleSelect(item: TickerResult) {
     setSelected(item);
@@ -121,22 +128,31 @@ export default function TickerDropdown() {
     setLoading(true);
     setError(null);
     try {
+      const body: any = {
+        assetClass,
+        symbol: selected?.symbol || null
+      };
+      
+      if (inputMode === 'units') {
+        body.units = Number(units);
+      } else {
+        body.value = Number(value);
+        body.valueCurrency = valueCurrency;
+      }
+      
       const res = await fetch('/api/holdings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
-        body: JSON.stringify({
-          assetClass,
-          units: Number(units),
-          symbol: selected?.symbol || null
-        })
+        body: JSON.stringify(body)
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Failed to add holding');
+        const resBody = await res.json().catch(() => ({}));
+        throw new Error(resBody.error || 'Failed to add holding');
       }
       // Reset form
       setUnits('');
+      setValue('');
       setSelected(null);
       setQuery('');
       setResults([]);
@@ -272,26 +288,110 @@ export default function TickerDropdown() {
           </>
         )}
 
+        {/* Input Mode Toggle */}
+        {isStockOrETF(assetClass) && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setInputMode('units')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: inputMode === 'units' ? '#000' : '#fff',
+                color: inputMode === 'units' ? '#fff' : '#000',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Buy by Shares
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode('value')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: inputMode === 'value' ? '#000' : '#fff',
+                color: inputMode === 'value' ? '#fff' : '#000',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Buy by Value
+            </button>
+          </div>
+        )}
+
         {/* Units/Amount Input */}
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}>{unitLabel}</span>
-          <input
-            type="number"
-            min="0"
-            step="any"
-            value={units}
-            onChange={(e) => setUnits(e.target.value)}
-            placeholder="0"
-            style={{ 
-              padding: '12px', 
-              borderRadius: 8, 
-              border: '1px solid var(--border)', 
-              background: 'var(--panel)', 
-              color: 'var(--text)',
-              fontSize: 15
-            }}
-          />
-        </label>
+        {inputMode === 'units' ? (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}>{unitLabel}</span>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={units}
+              onChange={(e) => setUnits(e.target.value)}
+              placeholder="0"
+              style={{ 
+                padding: '12px', 
+                borderRadius: 8, 
+                border: '1px solid var(--border)', 
+                background: 'var(--panel)', 
+                color: 'var(--text)',
+                fontSize: 15
+              }}
+            />
+          </label>
+        ) : (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}>Investment Amount</span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="300"
+                style={{ 
+                  flex: 1,
+                  padding: '12px', 
+                  borderRadius: 8, 
+                  border: '1px solid var(--border)', 
+                  background: 'var(--panel)', 
+                  color: 'var(--text)',
+                  fontSize: 15
+                }}
+              />
+              <select
+                value={valueCurrency}
+                onChange={(e) => setValueCurrency(e.target.value)}
+                style={{ 
+                  padding: '12px', 
+                  borderRadius: 8, 
+                  border: '1px solid var(--border)', 
+                  background: 'var(--panel)', 
+                  color: 'var(--text)',
+                  fontSize: 15
+                }}
+              >
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+                <option value="CNY">CNY</option>
+              </select>
+            </div>
+            <span className="muted" style={{ fontSize: 12 }}>
+              e.g., €300 worth of shares
+            </span>
+          </label>
+        )}
 
         {error && (
           <div style={{ 

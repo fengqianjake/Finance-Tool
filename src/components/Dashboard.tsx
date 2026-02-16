@@ -17,6 +17,7 @@ export type ClientHoldingView = {
   id: string;
   assetClass: string;
   symbol: string | null;
+  name: string | null;
   resolvedSymbol: string | null;
   units: number;
   valueCurrency: string | null;
@@ -299,7 +300,9 @@ export default function Dashboard({ initialSnapshot }: { initialSnapshot: Client
           {snapshot.holdings.map((holding) => {
             const value = holding.valueInDisplay ?? 0;
             const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
-            const name = holding.resolvedSymbol || holding.symbol || getAssetLabel(holding.assetClass);
+            // Use company name if available, otherwise fall back to symbol
+            const displayName = holding.name || holding.resolvedSymbol || holding.symbol || getAssetLabel(holding.assetClass);
+            const subtitle = holding.name && holding.symbol ? holding.symbol : holding.resolvedSymbol || '';
             
             return (
               <div 
@@ -327,10 +330,11 @@ export default function Dashboard({ initialSnapshot }: { initialSnapshot: Client
                 }}>
                   <div>
                     <div style={{ fontSize: '18px', fontWeight: 600 }}>
-                      {name}
+                      {displayName}
                     </div>
                     <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
-                      {holding.units} {holding.assetClass === 'STOCK' || holding.assetClass === 'ETF' ? 'shares' : 'units'}
+                      {subtitle && <span style={{ marginRight: '8px' }}>{subtitle} ·</span>}
+                      {holding.units.toFixed(4)} {holding.assetClass === 'STOCK' || holding.assetClass === 'ETF' ? 'shares' : 'units'}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

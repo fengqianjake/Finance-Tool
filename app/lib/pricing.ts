@@ -5,6 +5,7 @@ const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 type Quote = {
   symbol: string;
+  name?: string | null;
   currency?: string | null;
   regularMarketPrice?: number | null;
   regularMarketChange?: number | null;
@@ -30,6 +31,7 @@ export async function fetchQuote(symbol: string): Promise<Quote | null> {
     const quote = await yahooFinance.quoteSummary(symbol, { modules: ['price', 'summaryDetail'] });
     return {
       symbol,
+      name: quote.price?.longName || quote.price?.shortName || symbol,
       currency: quote.price?.currency || quote.summaryDetail?.currency,
       regularMarketPrice: quote.price?.regularMarketPrice ?? undefined,
       regularMarketChange: quote.price?.regularMarketChange ?? undefined,
@@ -41,13 +43,13 @@ export async function fetchQuote(symbol: string): Promise<Quote | null> {
   }
 }
 
-export async function upsertTicker(symbol: string) {
+export async function upsertTicker(symbol: string, name?: string) {
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return null;
   return prisma.ticker.upsert({
     where: { symbol: normalized },
-    update: {},
-    create: { symbol: normalized }
+    update: name ? { name } : {},
+    create: { symbol: normalized, name }
   });
 }
 
@@ -91,6 +93,11 @@ export async function fetchAndStoreSnapshots(symbols: string[]): Promise<Snapsho
     const quote = await fetchQuote(symbol);
     if (!quote?.regularMarketPrice) {
       continue;
+    }
+
+    // Update ticker name if available
+    if (quote.name) {
+      await upsertTicker(symbol, quote.name);
     }
 
     const created = await prisma.priceSnapshot.create({

@@ -35,6 +35,7 @@ model PriceSnapshot {
 model Ticker {
   id        String   @id @default(cuid())
   symbol    String   @unique
+  name      String?
   createdAt DateTime @default(now())
 }
 

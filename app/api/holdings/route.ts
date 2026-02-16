@@ -19,16 +19,18 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { assetClass, symbol, units } = body as { assetClass?: string; symbol?: string; units?: number | string };
+    const { assetClass, symbol, units, value, valueCurrency } = body as { 
+      assetClass?: string; 
+      symbol?: string; 
+      units?: number | string;
+      value?: number | string;
+      valueCurrency?: string;
+    };
+    
     if (!assetClass || !isValidAssetClass(assetClass)) {
       return NextResponse.json({ error: 'Invalid asset class' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
     const normalizedAssetClass = assetClass as AssetClass;
-
-    const parsedUnits = typeof units === 'string' ? Number(units) : units;
-    if (parsedUnits === undefined || parsedUnits === null || Number.isNaN(parsedUnits) || parsedUnits <= 0) {
-      return NextResponse.json({ error: 'Units must be greater than 0' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
-    }
 
     const portfolio = await getOrCreatePortfolio();
     const symbolInput = typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
@@ -38,6 +40,38 @@ export async function POST(req: NextRequest) {
 
     if (requiresSymbol && !symbolInput) {
       return NextResponse.json({ error: 'Symbol is required for stocks and ETFs' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    let finalUnits: number;
+    
+    // If value is provided, calculate units based on current price
+    if (value !== undefined && value !== null) {
+      const parsedValue = typeof value === 'string' ? Number(value) : value;
+      if (Number.isNaN(parsedValue) || parsedValue <= 0) {
+        return NextResponse.json({ error: 'Value must be greater than 0' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      }
+      
+      // For cash, units = value
+      if (isCash) {
+        finalUnits = parsedValue;
+      } else {
+        // For stocks/ETFs, fetch current price and calculate units
+        const { fetchQuote } = await import('../../lib/pricing');
+        const quote = await fetchQuote(symbolInput);
+        if (!quote?.regularMarketPrice) {
+          return NextResponse.json({ error: 'Could not fetch current price for this symbol' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+        }
+        finalUnits = parsedValue / quote.regularMarketPrice;
+      }
+    } else if (units !== undefined && units !== null) {
+      // Use provided units directly
+      const parsedUnits = typeof units === 'string' ? Number(units) : units;
+      if (Number.isNaN(parsedUnits) || parsedUnits <= 0) {
+        return NextResponse.json({ error: 'Units must be greater than 0' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      }
+      finalUnits = parsedUnits;
+    } else {
+      return NextResponse.json({ error: 'Either units or value must be provided' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
 
     const storedSymbol = isCash ? null : symbolInput || null;
@@ -50,12 +84,12 @@ export async function POST(req: NextRequest) {
       data: {
         assetClass: normalizedAssetClass,
         symbol: storedSymbol,
-        units: new Prisma.Decimal(parsedUnits),
+        units: new Prisma.Decimal(finalUnits),
         portfolioId: portfolio.id
       }
     });
 
-    return NextResponse.json({ ok: true, holdingId: holding.id }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ok: true, holdingId: holding.id, units: finalUnits }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[holdings] failed to create holding', error);
     return NextResponse.json({ error: 'Failed to save holding' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });

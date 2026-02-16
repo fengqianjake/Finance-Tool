@@ -7,6 +7,7 @@ export type HoldingView = {
   id: string;
   assetClass: AssetClass;
   symbol: string | null;
+  name: string | null;
   resolvedSymbol: string | null;
   units: number;
   valueCurrency: string | null;
@@ -79,6 +80,13 @@ export async function getPortfolioSnapshot(preferredCurrency?: string): Promise<
   const displayCurrency = resolveDisplayCurrency(preferredCurrency || portfolio.displayCurrency);
   const holdings = await listHoldings();
 
+  // Fetch ticker names
+  const tickerSymbols = holdings.map((h) => h.symbol).filter((s): s is string => Boolean(s));
+  const tickers = tickerSymbols.length > 0 
+    ? await prisma.ticker.findMany({ where: { symbol: { in: tickerSymbols } } })
+    : [];
+  const tickerNameMap = new Map(tickers.map((t) => [t.symbol, t.name]));
+
   const priceSymbols = holdings
     .map((h) => defaultSymbolForAsset(h.assetClass, h.symbol))
     .filter((s): s is string => Boolean(s));
@@ -95,6 +103,12 @@ export async function getPortfolioSnapshot(preferredCurrency?: string): Promise<
     let priceAt: Date | null = null;
     let rawValue: number | null = null;
     let note: string | undefined;
+
+    // Get ticker name
+    let name: string | null = null;
+    if (holding.symbol) {
+      name = tickerNameMap.get(holding.symbol) || null;
+    }
 
     if (holding.assetClass === 'STOCK' || holding.assetClass === 'ETF' || holding.assetClass === 'BITCOIN' || holding.assetClass === 'GOLD' || holding.assetClass === 'SILVER') {
       if (resolvedSymbol && priceMap.has(resolvedSymbol)) {
@@ -120,6 +134,7 @@ export async function getPortfolioSnapshot(preferredCurrency?: string): Promise<
       id: holding.id,
       assetClass: holding.assetClass,
       symbol: holding.symbol,
+      name,
       resolvedSymbol,
       units,
       valueCurrency,
