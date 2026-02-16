@@ -100,3 +100,4 @@ Migrations live in `prisma/migrations` (0001_init, 0002_add_tickers, 0003_portfo
 - `prisma/schema.prisma` & `prisma/migrations/*` – data model and migrations.
 - `vercel.json` – Vercel Cron configuration (daily).
 // Force redeploy
+// Force rebuild Mon Feb 16 11:12:54 CET 2026
