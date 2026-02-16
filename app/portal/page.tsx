@@ -9,7 +9,12 @@ export const revalidate = 0;
 
 export default async function PortalPage() {
   try {
+    console.log('PortalPage: Starting...');
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    
     const snapshot = await getPortfolioSnapshot();
+    console.log('Portfolio snapshot retrieved:', snapshot.totalValue);
+    
     await ensureSeedTickers();
     const tickers = await getTrackedTickers();
     const snapshots = await getLatestSnapshots(tickers);
@@ -46,15 +51,28 @@ export default async function PortalPage() {
         </div>
       </div>
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('PortalPage error:', error);
+    console.error('Error stack:', error.stack);
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h1>Error loading portfolio</h1>
-        <p>Please try again later.</p>
-        <pre style={{ marginTop: '20px', padding: '20px', background: '#f5f5f5', borderRadius: '8px', textAlign: 'left' }}>
-          {error instanceof Error ? error.message : String(error)}
-        </pre>
+      <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+        <h1 style={{ fontSize: '24px', marginBottom: '16px' }}>Error loading portfolio</h1>
+        <p style={{ color: '#666', marginBottom: '20px' }}>{error.message || 'Unknown error'}</p>
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '20px', 
+          background: '#f5f5f5', 
+          borderRadius: '8px', 
+          textAlign: 'left',
+          maxWidth: '800px',
+          margin: '20px auto',
+          overflow: 'auto'
+        }}>
+          <pre style={{ fontSize: '12px', color: '#d32f2f' }}>{error.stack || String(error)}</pre>
+        </div>
+        <p style={{ marginTop: '20px', fontSize: '14px', color: '#999' }}>
+          DATABASE_URL: {process.env.DATABASE_URL ? 'Set ✓' : 'Missing ✗'}
+        </p>
       </div>
     );
   }
