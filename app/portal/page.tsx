@@ -16,8 +16,17 @@ export default async function PortalPage() {
   
   const initialSnapshot: ClientPortfolioSnapshot = {
     holdings: snapshot.holdings.map((h) => ({
-      ...h,
-      priceAt: h.priceAt ? h.priceAt.toISOString() : null
+      id: h.id,
+      assetClass: h.assetClass,
+      symbol: h.symbol,
+      name: h.name,
+      resolvedSymbol: h.resolvedSymbol,
+      units: h.units,
+      valueCurrency: h.valueCurrency,
+      valueInDisplay: h.valueInDisplay,
+      pricePerUnit: h.pricePerUnit,
+      priceAt: h.priceAt ? h.priceAt.toISOString() : null,
+      note: h.note
     })) as ClientPortfolioSnapshot['holdings'],
     totalValue: snapshot.totalValue,
     displayCurrency: snapshot.displayCurrency,
