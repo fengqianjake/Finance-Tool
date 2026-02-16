@@ -261,7 +261,7 @@ export default function Dashboard({ initialSnapshot }: { initialSnapshot: Client
               width={80}
             />
             <Tooltip 
-              formatter={(value: number) => [formatNumber(value, displayCurrency), 'Value']}
+              formatter={(value: number | undefined) => [value !== undefined ? formatNumber(value, displayCurrency) : '—', 'Value']}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
               contentStyle={{
                 background: '#fff',
